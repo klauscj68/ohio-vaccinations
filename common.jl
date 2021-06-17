@@ -416,9 +416,9 @@ function depmat(sheet::data,auxmat::Dict{Symbol,Float64})
 	mydata = Dict{Symbol,Vector{Float64}}();
 	
 	# Initial conditions
-	mydata[:E0] = auxmat[:rptλ]*(1-sheet.vh)*(1-sheet.α)*sheet.d_E*sheet.I0;
-	mydata[:Ev0] = auxmat[:rptλ]*(1-sheet.vh)*sheet.α*sheet.d_E*sheet.I0;
-	mydata[:Eu0] = auxmat[:rptλ]*sheet.vh*sheet.d_E*sheet.I0;
+	mydata[:E0] = auxmat[:rptλ]*(1-sheet.vh)*(1-sheet.α)*sheet.d_E*sheet.E0;
+	mydata[:Ev0] = auxmat[:rptλ]*(1-sheet.vh)*sheet.α*sheet.d_E*sheet.E0;
+	mydata[:Eu0] = auxmat[:rptλ]*sheet.vh*sheet.d_E*sheet.E0;
 	mydata[:I0] = auxmat[:rptλ]*(1-sheet.vh)*(1-sheet.α)*sheet.I0;
 	mydata[:Iv0] = auxmat[:rptλ]*(1-sheet.vh)*sheet.α*sheet.I0;
 	mydata[:Iu0] = auxmat[:rptλ]*sheet.vh*sheet.I0;

@@ -213,6 +213,9 @@ function odesolver(sheet::data,mydep::Dict{Symbol,Vector{Float64}},
 	ntpts = Int64(ceil((tspan[2]-tspan[1])/sheet.δt));
 	tpts = [x for x in LinRange(tspan[1],tspan[2],ntpts)];
 	tpts[end] = tspan[2];
+
+	# Adjust frc_M times to new 0-index
+	frc_M[:,1] = frc_M[:,1] .- sheet.tspan[1];
 	
 	#  δt index goes to left end as tpts index
 	δt = tpts[2:end]-tpts[1:end-1];
@@ -241,12 +244,15 @@ function odesolver(sheet::data,mydep::Dict{Symbol,Vector{Float64}},
 	end
 	
 	# Transpose array
-	ysol = Array{Float64,2}(undef,ntpts,nyval);
-	@inbounds for j=1:ntpts
-		for i=1:nyval
-			ysol[j,i] = ypts[i,j];
-		end
-	end
+	# ysol = Array{Float64,2}(undef,ntpts,nyval);
+	# @inbounds for j=1:ntpts
+	#	for i=1:nyval
+	#		ysol[j,i] = ypts[i,j];
+	#	end
+	# end
+	
+	# Adjust time interval to nonzero index
+	tpts = tpts .+ sheet.tspan[1];
 
-	return tpts,ysol
+	return tpts,ypts
 end
