@@ -55,7 +55,7 @@ function datamat()
 
 	#  Vaccination strategy
 	#   Name of file if from csv. Empty denotes not.
-	mydata[:csv_vac] = "";
+	mydata[:csv_vac] = "All_by_Sept_7.csv";
 
 	#   If not csv specify unnormalized age distr from dashboard
 	mydata[:distr_vac] = [343799.0*.5,  # 0-9
@@ -368,6 +368,42 @@ function odhld()
 	df = odhld(sheet);
 
 	return df
+end
+
+#%% vaxld
+"""
+Import a vaccination schedule from a csv like what is output by Chance's
+routines
+"""
+function vaxld(sheet::data)
+	# Load the csv
+	fname = sheet.csv_vac;
+	if isempty(fname)
+		return
+	end
+
+	df = CSV.read(fname,DataFrame);
+
+	# Revert the dates to Jan 1, 2020 0-index
+	day0 = Date("2020-01-01");
+	dates = [Date(x,"mm/dd/yy") + Year(2000) for x in df[!,:date]];
+	ram = dates .- day0;
+	taxis = [Float64(getfield(t,:value)) for t in ram];
+
+	# Build the M matrix
+	M = Matrix{Float64}(undef,size(df)[1],10);
+	M[:,1] = taxis;
+	cols = ["0-9","10-19","20-29","30-39","40-49","50-59","60-69","70-79","80+"];
+	for i=1:9
+		M[:,1+i] = df[!,cols[i]];
+	end
+
+	return M
+end
+function vaxld()
+	sheet = data();
+	
+	return vaxld(sheet)
 end
 
 #%% depmat
