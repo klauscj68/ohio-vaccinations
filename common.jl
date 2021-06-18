@@ -166,6 +166,94 @@ function auxmat()
 	return mydata
 end
 
+#%% csvdat
+"""
+Format the datmat and auxmat dictionaries into a standard vector
+compatible for reading and writing csv files. One method converts
+dictionaries into an array and the other converts an array into a 
+dictionary.
+"""
+function csvdat(mydat::Dict{Symbol,Any},myaux::Dict{Symbol,Float64})
+	datary = Vector{Float64}(undef,178);
+
+	# Primary
+	datary[1] = mydat[:d_E];
+	datary[2] = mydat[:d_I];
+	datary[3:11] = mydat[:β];
+	datary[12] = mydat[:r0];
+	datary[13:21] = mydat[:IFR];
+	datary[22:30] = mydat[:N];
+	datary[31] = mydat[:α];
+	datary[32] = mydat[:ω];
+	datary[33] = mydat[:vtot];
+	datary[34] = mydat[:vh];
+	datary[35] = NaN; # csv_vac
+	datary[36:44] = mydat[:distr_vac];
+	datary[45] = mydat[:vrate];
+	datary[46:126] = mydat[:C][:];
+	datary[127] = NaN; # csv_odh
+	datary[128:136] = mydat[:I0];
+	datary[137:145] = mydat[:E0];
+	datary[146:154] = mydat[:D0];
+	datary[155:163] = mydat[:R0];
+	datary[164:172] = mydat[:Sv0];
+	datary[173:174] = mydat[:tspan];
+	datary[175] = mydat[:δt];
+
+	# Auxiliary
+	pos = 175; # Starting index for auxiliary params
+	datary[pos+1] = myaux[:rptλ];
+	datary[pos+2] = myaux[:bayσ];
+	datary[pos+3] = myaux[:rptinc];
+
+	return datary, pos
+end
+function csvdat(datary::Vector{Float64},csv_vac::String="",csv_odh::String="")
+	mydat = Dict{Symbol,Any};
+	myaux = Dict{Symbol,Float64};
+
+	# Primary
+	mydat[:d_E] = datary[1];
+	mydat[:d_I] = datary[2];
+	mydat[:β] = datary[3:11] ;
+	mydat[:r0] = datary[12];
+	mydat[:IFR] = datary[13:21];
+	mydat[:N] = datary[22:30];
+	mydat[:α] = datary[31];
+	mydat[:ω] = datary[32];
+	mydat[:vtot] = datary[33];
+	mydat[:vh] = datary[34];
+	mydat[:csv_vac] = csv_vac;
+	mydat[:distr_vac] = datary[36:44];
+	mydat[:vrate] = datary[45];
+	mydat[:C] = reshape(datary[46:126],(9,9));
+	mydat[:csv_odh] = csv_odh;
+	mydat[:I0] = datary[128:136];
+	mydat[:E0] = datary[137:145];
+	mydat[:D0] = datary[146:154];
+	mydat[:R0] = datary[155:163];
+	mydat[:Sv0] = datary[164:172];
+	mydat[:tspan] = datary[173:174];
+	mydat[:δt] = datary[175];
+
+	# Auxiliary
+	pos = 175; # Starting index for auxiliary params
+	myaux[:rptλ] = datary[pos+1];
+	myaux[:bayσ] = datary[pos+2];
+	myaux[:rptinc] = datary[pos+3];
+
+	return mydat,myaux
+end
+"""
+Revert a dictionary to an array as needed
+"""
+function auxmat(myaux::Dict{Symbol,Float64})
+	myary = [myaux[:rptinc],
+		 myaux[:rptλ],
+		 myaux[:bayσ]];
+
+	return myary
+end
 # data
 """
 Structure for encoding the independent model parameters in the Bubar
@@ -266,6 +354,28 @@ function datamat(sheet::data)
 	end
 
 	return mydata
+end
+"""
+Convert the datamat dictionary into an array where csv's are stored as NaN
+NOT to be used in calls to data since csv's have been lost to NaN's for 
+Type reasons
+"""
+function datamat(mydat::Dict{Symbol,Any})
+	sheet = data(mydat);
+	keys = fieldnames(data);
+	n = length(keys);
+
+	mydatary = Vector{Float64}();
+	for i=1:n
+		if (key != :csv_vac)&(key != :csv_odh)
+			val = getfield(sheet,keys[i]);
+		else
+			val = NaN;
+		end
+		mydatvary = [mydatvary; val];
+	end
+	
+	return mydatary
 end
 
 #%% odhld
