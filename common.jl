@@ -244,16 +244,7 @@ function csvdat(datary::Vector{Float64},csv_vac::String="",csv_odh::String="")
 
 	return mydat,myaux
 end
-"""
-Revert a dictionary to an array as needed
-"""
-function auxmat(myaux::Dict{Symbol,Float64})
-	myary = [myaux[:rptinc],
-		 myaux[:rptλ],
-		 myaux[:bayσ]];
 
-	return myary
-end
 # data
 """
 Structure for encoding the independent model parameters in the Bubar
@@ -354,28 +345,6 @@ function datamat(sheet::data)
 	end
 
 	return mydata
-end
-"""
-Convert the datamat dictionary into an array where csv's are stored as NaN
-NOT to be used in calls to data since csv's have been lost to NaN's for 
-Type reasons
-"""
-function datamat(mydat::Dict{Symbol,Any})
-	sheet = data(mydat);
-	keys = fieldnames(data);
-	n = length(keys);
-
-	mydatary = Vector{Float64}();
-	for i=1:n
-		if (key != :csv_vac)&(key != :csv_odh)
-			val = getfield(sheet,keys[i]);
-		else
-			val = NaN;
-		end
-		mydatvary = [mydatvary; val];
-	end
-	
-	return mydatary
 end
 
 #%% odhld
