@@ -5,7 +5,9 @@ among a given sequence of times. Writing because the findfirst routine is provin
 be expensive in Julia. Routine uses that tpts is ordered least to great. It's 
 assumed teval is strictly contained in the interval partitioned by tpts.
 """
-function myfindfirst(tpts::Array{Float64,1},teval::Float64)
+function myfindfirst(tpts::Union{Vector{Float64},
+		                 SubArray{Float64, 1, Matrix{Float64}, Tuple{Base.Slice{Base.OneTo{Int64}}, Int64}, true}},
+		     teval::Float64)
 	ntpts = length(tpts);
 	
 	# Find the smallest interval of type (,] containing point.
@@ -33,14 +35,18 @@ A simple 1d linear interpolation scheme to extend a discrete data set to an inte
 vals: ntpts x 2 array of floats. First column is time, second is function value
 teval: time point at which to evaluate
 """
-function myinterp(tpts::Array{Float64,1},ypts::Array{Float64,1},teval::Float64)
+function myinterp(tpts::Union{Vector{Float64},
+			      SubArray{Float64, 1, Matrix{Float64}, Tuple{Base.Slice{Base.OneTo{Int64}}, Int64}, true}},
+		  ypts::Union{Vector{Float64},
+			      SubArray{Float64, 1, Matrix{Float64}, Tuple{Base.Slice{Base.OneTo{Int64}}, Int64}, true}},
+		  teval::Float64)
 	
 	if teval <= tpts[1]
-		val = ypts[1];
+		@timeit "left outside" val = ypts[1];
 	elseif teval >= tpts[end]
-		val = ypts[end];
+		@timeit "right outside" val = ypts[end];
 	else
-		pos = myfindfirst(tpts,teval);
+		@timeit "myfindfirst" pos = myfindfirst(tpts,teval);
 		t1,t2 = tpts[pos-1:pos];
 		s = (teval-t1)/(t2-t1);
 		v1 = ypts[pos-1];
@@ -77,8 +83,11 @@ function vacprt(sheet::data,t::Float64,S::Vector{Float64},
 
 	else
 		Srate = Vector{Float64}(undef,9);
+		@bp
+		frc_M1 = @view frc_M[:,1];
 		for i=1:9
-			Srate[i] = myinterp(frc_M[:,1],frc_M[:,1+i],t);
+			frc_M2 = @view frc_M[:,1+i];
+		@timeit "vacprt_int" Srate[i] = myinterp(frc_M1,frc_M2,t);
 		end
 
 		# Determine if S left to vaccinate
@@ -95,41 +104,42 @@ end
 Define the flowfield to be used with the 4th order Runga-Kutta solver below
 """
 function flowfield(sheet::data,mydep::Dict{Symbol,Vector{Float64}},
-		   t::Float64,u::Vector{Float64},
+		   t::Float64,uorig::Vector{Float64},
 		   frc_M::Matrix{Float64}=[0. 0. ; 0. 0.])
 
 	# Reshape u from column vector into 3 arrays
-	n = length(u);
-	u = reshape(u,(27,Int64(n/27)));
+	n = length(uorig);
+	u = reshape(uorig,(27,Int64(n/27)));
 
 	#  Separate into unvacc, vacc, and vacc hes
 	#  X = [S E I R D]
 	n = 9;
-	X = u[1:n,:];
-	Y = u[n+1:2n,:];
-	Z = u[2n+1:3n,:];
+	@timeit "flowary" X = u[1:n,:];
+	@timeit "flowary" Y = u[n+1:2n,:];
+	@timeit "flowary" Z = u[2n+1:3n,:];
 
-	S = X[:,1]; E = X[:,2]; I = X[:,3]; R = X[:,4]; D = X[:,5];
-	Sv = Y[:,1]; Ev = Y[:,2]; Iv = Y[:,3]; Rv = Y[:,4]; Dv = Y[:,5];
-	Sx = Z[:,1]; Ex = Z[:,2]; Ix = Z[:,3]; Rx = Z[:,4]; Dx = Z[:,5];
+	@timeit "flowary" S = X[:,1]; E = X[:,2]; I = X[:,3]; R = X[:,4]; D = X[:,5];
+	@timeit "flowary" Sv = Y[:,1]; Ev = Y[:,2]; Iv = Y[:,3]; Rv = Y[:,4]; Dv = Y[:,5];
+	@timeit "flowary" Sx = Z[:,1]; Ex = Z[:,2]; Ix = Z[:,3]; Rx = Z[:,4]; Dx = Z[:,5];
 
 	# Compute size of vaccinated population for possibile limit to vax
 	Nv = sum(Y);
 
 	# Compute ODE systems
 	#  Unvaccinated
-	DS = (-S.*mydep[:β]).*(sheet.C*(
+	@timeit "ode" DS = (-S.*mydep[:β]).*(sheet.C*(
 			       (I+sheet.ω*Iv+Ix)./(sheet.N-D-Dv-Dx)
 			       )
 			    );
-	DE = -DS - (1/sheet.d_E)*E;
+	@timeit "ode" DE = -DS - (1/sheet.d_E)*E;
 	#   Now add in vaccination protocol
-	DS = DS - vacprt(sheet,t,S,Nv,frc_M);	
-	DI = (1/sheet.d_E)*E - (1/sheet.d_I)*I;
-	DR = (1/sheet.d_I)*I.*(1 .- sheet.IFR);
-	DD = (1/sheet.d_I)*I.*sheet.IFR;
+	@timeit "vacprt" vaxtrans = vacprt(sheet,t,S,Nv,frc_M);
+	@timeit "ode" DS = DS - vaxtrans;	
+	@timeit "ode" DI = (1/sheet.d_E)*E - (1/sheet.d_I)*I;
+	@timeit "ode" DR = (1/sheet.d_I)*I.*(1 .- sheet.IFR);
+	@timeit "ode" DD = (1/sheet.d_I)*I.*sheet.IFR;
 
-	DX = [DS DE DI DR DD];
+	@timeit "odesys" DX = [DS DE DI DR DD];
 
 	#  Vaccinated
 	DS = sheet.α*
@@ -139,7 +149,7 @@ function flowfield(sheet::data,mydep::Dict{Symbol,Vector{Float64}},
 			     );
 	DE = -DS - (1/sheet.d_E)*Ev;
 	#   Now add in vaccination protocol
-	DS = DS + vacprt(sheet,t,S,Nv,frc_M);	
+	DS = DS + vaxtrans;	
 	DI = (1/sheet.d_E)*Ev - (1/sheet.d_I)*Iv;
 	DR = (1/sheet.d_I)*Iv.*(1 .- sheet.α*sheet.IFR);
 	DD = (1/sheet.d_I)*Iv.*(sheet.α*sheet.IFR);
@@ -159,7 +169,7 @@ function flowfield(sheet::data,mydep::Dict{Symbol,Vector{Float64}},
 	DZ = [DS DE DI DR DD];
 
 	Du = [DX;DY;DZ];
-	flow = Du[:];
+	@timeit "flow" flow = Du[:];
 
 	return flow
 	
@@ -195,7 +205,7 @@ SEIR variables have been flattened into single column array like [:]. Use reshap
 to human readable format.
 """
 function odesolver(sheet::data,mydep::Dict{Symbol,Vector{Float64}},
-		   frc_M::Matrix{Float64}=[0. 0. ; 0. 0.])
+		   frc_Morig::Matrix{Float64}=[0. 0. ; 0. 0.])
 	# Initialize initial data
 	S = [mydep[:S0];mydep[:Sv0];mydep[:Su0]];
 	E = [mydep[:E0];mydep[:Ev0];mydep[:Eu0]];
@@ -215,7 +225,7 @@ function odesolver(sheet::data,mydep::Dict{Symbol,Vector{Float64}},
 	tpts[end] = tspan[2];
 
 	# Adjust frc_M times to new 0-index
-	frc_M[:,1] = frc_M[:,1] .- sheet.tspan[1];
+	frc_M[:,1] = frc_Morig[:,1] .- sheet.tspan[1];
 	
 	#  δt index goes to left end as tpts index
 	δt = tpts[2:end]-tpts[1:end-1];
@@ -235,8 +245,8 @@ function odesolver(sheet::data,mydep::Dict{Symbol,Vector{Float64}},
 		h = δt[i];
 			
 		# Define the vectorial slope values
-		ynow = ypts[:,i];
-		runga!(sheet,mydep,tpts[i],h,ynow,frc_M,K0,K1,K2,K3);	
+		@timeit "memcopy" ynow = ypts[:,i];
+		@timeit "runga" runga!(sheet,mydep,tpts[i],h,ynow,frc_M,K0,K1,K2,K3);	
 
 		# Compute the new y-value by weighted average
 		ypts[:,i+1] = ynow + 1/6*(K0+2*K1+2*K2+K3);	
@@ -252,7 +262,7 @@ function odesolver(sheet::data,mydep::Dict{Symbol,Vector{Float64}},
 	# end
 	
 	# Adjust time interval to nonzero index
-	tpts = tpts .+ sheet.tspan[1];
+	@timeit "broadcast" tpts = tpts .+ sheet.tspan[1];
 
 	return tpts,ypts
 end
