@@ -140,7 +140,7 @@ function datamat()
 	mydata[:tspan] = [425., 515.];
 
 	#  Runga kutta time step
-	mydata[:δt] = .1;
+	mydata[:δt] = .5;
 
 	return mydata
 
@@ -463,11 +463,12 @@ function vaxld(sheet::data)
 
 	df = CSV.read(fname,DataFrame);
 
-	# Revert the dates to Jan 1, 2020 0-index
+	# Revert the dates to Jan 1, 2020 0-index and then to ti 0-index
 	day0 = Date("2020-01-01");
 	dates = [Date(x,"mm/dd/yy") + Year(2000) for x in df[!,:date]];
 	ram = dates .- day0;
 	taxis = [Float64(getfield(t,:value)) for t in ram];
+	taxis = taxis .- sheet.tspan[1];
 
 	# Build the M matrix
 	M = Matrix{Float64}(undef,size(df)[1],10);
