@@ -74,7 +74,7 @@ function gibbsdatamat()
 	#-----
 	# Auxilliary parameters
 	rptλ = [1.,6.]; flagrptλ = true;
-	bayσ = [5.,50.]; flagbayσ = true;
+	bayσ = [5.,200.]; flagbayσ = true;
 	prmrg[:rptλ] = rptλ; prmrg[:bayσ] = bayσ;
 	prmvary[:rptλ] = flagrptλ; prmvary[:bayσ] = flagbayσ;
 
@@ -118,39 +118,37 @@ function gibbsmodelerr(sheet::data,myaux::Dict{Symbol,Float64},mydep::Dict{Symbo
 		       frc_M::Matrix{Float64},
 		       measurements::Dict{String,Vector{Float64}})
 	# Run the model for given choice of parameters
-	@timeit "gibbsmodelrun" tpts,yptsorig = gibbsmodelrun(sheet,mydep,frc_M)
+	tpts,yptsorig = gibbsmodelrun(sheet,mydep,frc_M)
 	
 	# For comparing to ODH, aggregate across Unvax, Vax, Unwill
-	@timeit "ypts" ypts = reshape(yptsorig,(27,5,length(tpts)));
-	@timeit "ypts" ypts = ypts[1:9,:,:] + ypts[10:18,:,:] + ypts[19:27,:,:];
+	ypts = reshape(yptsorig,(27,5,length(tpts)));
+	ypts = ypts[1:9,:,:] + ypts[10:18,:,:] + ypts[19:27,:,:];
 
 	# Quadrature compute daily new infections
 	#  Approx as ∫ₐᵇfdx ≈ ∑ᵢfᵢΔx = (b-a)*∑ᵢfᵢ/n
 	ti = Int64(floor(sheet.tspan[1])); tf = Int64(ceil(sheet.tspan[2]));
-	@timeit "ypts" Etot = ypts[:,2,:];
+	Etot = ypts[:,2,:];
 
-	@timeit "dailyI init" dailyI = Matrix{Float64}(undef,tf-ti,9);
-	for i=ti:(tf-1)
-		# Find the tpts within [t,t+1)
-		@timeit "find tpts" flag = (i.<=tpts).*(tpts.<(i+1));
-	        @timeit "count tpts" nnz = sum(flag);
-		
+	dailyI = Matrix{Float64}(undef,tf-ti,9);
+	for i=ti:(tf-1)	
 		for j=1:9
-			# Integrate over day so b-a = 1.
-			@timeit "quadrature" dailyI[i-(ti-1),j] = 1/(sheet.d_E)*sum(flag.*Etot[j,:])/nnz;
+			val1 = myinterp(tpts,Etot[j,:],Float64(i));
+			val2 = myinterp(tpts,Etot[j,:],Float64(i+1));
+			# Integrate over day so b-a = 1 by trapezoidal
+			dailyI[i-(ti-1),j] = .5*(val1+val2);
 		end
 
 	end
-	@timeit "dailyI rpt" dailyI *= (1/myaux[:rptλ]);
+	dailyI *= (1/myaux[:rptλ]);
 
 	# Construct the error dictionary
-	@timeit "SE init" SE = Matrix{Float64}(undef,tf-ti,9);
-	@timeit "dict keys" keys = ["0-9","10-19","20-29","30-39","40-49","50-59","60-69","70-79","80+"];
+	SE = Matrix{Float64}(undef,tf-ti,9);
+	keys = ["0-9","10-19","20-29","30-39","40-49","50-59","60-69","70-79","80+"];
 	for i=1:9
-		@timeit "SE" SE[:,i] = abs.(dailyI[:,i] - measurements[keys[i]]).^2 ;
+		SE[:,i] = abs.(dailyI[:,i] - measurements[keys[i]]).^2 ;
 	end
 
-	@timeit "return" return SE
+	return SE
 end
 #%% randdir!
 """
@@ -206,14 +204,14 @@ function gibbsprior(sheet::data,myaux::Dict{Symbol,Float64},mydep::Dict{Symbol,V
 	#-----
 	# Custom checks that would need to be changed for generic Gibbs
 	# Check that we have not exceeded Ohio population
-	pop = mydep[:S0] + mydep[:Sv0] + mydep[:Su0] + 
+	pop = mydep[:Sv0] + 
 	      mydep[:E0] + mydep[:Ev0] + mydep[:Eu0] + 
 	      mydep[:I0] + mydep[:Iv0] + mydep[:Iu0] + 
 	      mydep[:R0] + mydep[:Rv0] + mydep[:Ru0] + 
 	      mydep[:D0] + mydep[:Dv0] + mydep[:Du0] ;
 	flag = (pop .> sheet.N);
 	nnz = sum(flag);
-	if nnz != 0
+	if nnz != 0	
 		return -Inf
 	end
 
@@ -326,7 +324,7 @@ function gibbscondsmp!(sheet::data,myaux::Dict{Symbol,Float64},gibbssheet::gibbs
 	mydep = depmat(sheet,myaux); canddepmat = deepcopy(mydep);	
 	prmpr = 0;
 	flagfd = false;
-	nrej = 0; prgbar = 0; δprgbar = 100;
+	nrej = 0; prgbar = 0; δprgbar = 1000;
 	#  Run accept-reject on the proposal distribution
 	while !flagfd
 		#  Uniformly sample envelope
@@ -341,7 +339,7 @@ function gibbscondsmp!(sheet::data,myaux::Dict{Symbol,Float64},gibbssheet::gibbs
 			
 			# Fast check if admissible
 			logρ = gibbsprior(candsheet,candauxmat,canddepmat,gibbssheet);
-			if logρ == -Inf
+			if logρ == -Inf	
 				continue
 			end
 
@@ -360,7 +358,6 @@ function gibbscondsmp!(sheet::data,myaux::Dict{Symbol,Float64},gibbssheet::gibbs
 
 		#  Uniformly restrict to subgraph
 		logρ += gibbscondprp(candsheet,canddepmat,candauxmat,candSE)
-		@bp
 		if log(prmgr) < logρ
 			flagfd = true;
 		else
@@ -497,8 +494,7 @@ function gibbsmcmc(nsmp::Int64; rng::MersenneTwister=MersenneTwister(), MHmix::F
 
 		initsheet, initdepmat, initauxmat = gibbsinit!(sheet,myaux,gibbssheet; rng=rng)
 		initdatamat = datamat(initsheet);
-		@bp
-		@timeit "initSE" initSE = gibbsmodelerr(initsheet,initauxmat,initdepmat,frc_M,measurements);
+		initSE = gibbsmodelerr(initsheet,initauxmat,initdepmat,frc_M,measurements);
 	else 
 		# Load the data from files
 		DF_init = CSV.read(frestart,DataFrame,header=false);
@@ -534,7 +530,7 @@ function gibbsmcmc(nsmp::Int64; rng::MersenneTwister=MersenneTwister(), MHmix::F
 		if rand(rng) < MHmix
 			# MH sample by accept-reject under gibbscondprp
 			candprm = 0; candsheet=0; canddepmat=0; candauxmat=0; candSE=0;
-			flag_fd = false; nrej = 0.; mhprgbar = 0.; mhδprgbar = 100.;
+			flag_fd = false; nrej = 0.; mhprgbar = 0.; mhδprgbar = 1000.;
 			while !flag_fd
 				# Sample cand parameter values
 				candprm = deepcopy(initdatamat); 
@@ -565,8 +561,7 @@ function gibbsmcmc(nsmp::Int64; rng::MersenneTwister=MersenneTwister(), MHmix::F
 				candSE = gibbsmodelerr(candsheet,candauxmat,canddepmat,frc_M,measurements);
 				logρ += gibbscondprp(candsheet,canddepmat,candauxmat,candSE);
 				
-				#   Uniformly restrict to subgraph
-				@bp 
+				#   Uniformly restrict to subgraph 
 				if log(prmgr) < logρ
 					flag_fd = true;
 				else

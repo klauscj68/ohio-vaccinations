@@ -140,7 +140,7 @@ function datamat()
 	mydata[:tspan] = [425., 515.];
 
 	#  Runga kutta time step
-	mydata[:δt] = .5;
+	mydata[:δt] = .1;
 
 	return mydata
 

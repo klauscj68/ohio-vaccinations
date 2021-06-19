@@ -65,6 +65,7 @@ Define the transfer rate from S unvacc to vacc
 function vacprt(sheet::data,t::Float64,
 		S::Union{
 			Vector{Float64},
+			SubArray{Float64, 1, Matrix{Float64}, Tuple{UnitRange{Int64}, Int64}, true},
 			SubArray{Float64, 1, Base.ReshapedArray{Float64, 2, SubArray{Float64, 1, Matrix{Float64},
 				Tuple{Base.Slice{Base.OneTo{Int64}}, Int64}, true}, Tuple{}}, Tuple{UnitRange{Int64}, Int64}, true}},
 		Nv::Float64,frc_M::Matrix{Float64}=[0. 0. ; 0. 0.])
@@ -92,10 +93,10 @@ function vacprt(sheet::data,t::Float64,
 			frc_M2 = @view frc_M[:,1+i];
 		Srate[i] = myinterp(frc_M1,frc_M2,t);
 		end
-
+	
+	end
 		# Determine if S left to vaccinate
 		Srate = Srate.*(S .> 0.);
-	end
 
 	return Srate
 
