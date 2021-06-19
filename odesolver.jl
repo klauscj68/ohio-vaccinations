@@ -62,7 +62,11 @@ end
 """
 Define the transfer rate from S unvacc to vacc
 """
-function vacprt(sheet::data,t::Float64,S::Vector{Float64},
+function vacprt(sheet::data,t::Float64,
+		S::Union{
+			Vector{Float64},
+			SubArray{Float64, 1, Base.ReshapedArray{Float64, 2, SubArray{Float64, 1, Matrix{Float64},
+				Tuple{Base.Slice{Base.OneTo{Int64}}, Int64}, true}, Tuple{}}, Tuple{UnitRange{Int64}, Int64}, true}},
 		Nv::Float64,frc_M::Matrix{Float64}=[0. 0. ; 0. 0.])
 	
 	if isempty(sheet.csv_vac)
@@ -115,13 +119,13 @@ function flowfield(sheet::data,mydep::Dict{Symbol,Vector{Float64}},
 	#  Separate into unvacc, vacc, and vacc hes
 	#  X = [S E I R D]
 	n = 9;
-	X = u[1:n,:];
-	Y = u[n+1:2n,:];
-	Z = u[2n+1:3n,:];
+	X = @view u[1:n,:];
+	Y = @view u[n+1:2n,:];
+	Z = @view u[2n+1:3n,:];
 
-	S = X[:,1]; E = X[:,2]; I = X[:,3]; R = X[:,4]; D = X[:,5];
-	Sv = Y[:,1]; Ev = Y[:,2]; Iv = Y[:,3]; Rv = Y[:,4]; Dv = Y[:,5];
-	Sx = Z[:,1]; Ex = Z[:,2]; Ix = Z[:,3]; Rx = Z[:,4]; Dx = Z[:,5];
+	S = @view X[:,1]; E = @view X[:,2]; I = @view X[:,3]; R = @view X[:,4]; D = @view X[:,5];
+	Sv = @view Y[:,1]; Ev = @view Y[:,2]; Iv = @view Y[:,3]; Rv = @view Y[:,4]; Dv = @view Y[:,5];
+	Sx = @view Z[:,1]; Ex = @view Z[:,2]; Ix = @view Z[:,3]; Rx = @view Z[:,4]; Dx = @view Z[:,5];
 
 	# Compute size of vaccinated population for possibile limit to vax
 	Nv = sum(Y);
