@@ -270,10 +270,11 @@ Routine uses myinterp from the odesolver.jl library
 function gibbslikelihood(sheet::data,mydep::Dict{Symbol,Vector{Float64}},myaux::Dict{Symbol,Float64},
 		SE::Matrix{Float64})
 
-	# Assume daily reported cases erro is normal iid across all days and ages
+	# Assume daily reported cases error is normal iid across each age cohort
 	val = 0
-	for i=1:length(SE)
-		val += -.5*SE[i]/myaux[:bayσ]^2 - log(myaux[:bayσ]);
+	for i=1:9
+		ram = sum(SE[:,i])/length(SE[:,i]);
+		val += -.5*ram/myaux[:bayσ]^2 - log(myaux[:bayσ]);
 	end
 
 	return val
@@ -327,7 +328,7 @@ function gibbscondsmp!(sheet::data,myaux::Dict{Symbol,Float64},gibbssheet::gibbs
 	mydep = depmat(sheet,myaux); canddepmat = deepcopy(mydep);	
 	prmpr = 0;
 	flagfd = false;
-	nrej = 0; prgbar = 0; δprgbar = 1000;
+	nrej = 0; prgbar = 0; δprgbar = 100;
 	#  Run accept-reject on the proposal distribution
 	while !flagfd
 		#  Uniformly sample envelope
@@ -361,14 +362,14 @@ function gibbscondsmp!(sheet::data,myaux::Dict{Symbol,Float64},gibbssheet::gibbs
 
 		#  Uniformly restrict to subgraph
 		logρ += gibbscondprp(candsheet,canddepmat,candauxmat,candSE)
-		
-		@bp if log(prmgr) < logρ
+		@bp
+		if log(prmgr) < logρ
 			flagfd = true;
 		else
 			nrej += 1;
 			if nrej >= prgbar + δprgbar
 				prgbar = nrej;
-				println(prmkey*" has $prgbar many rejections in its Gibbs sampling...")
+				println(String(prmkey)*" has $prgbar many rejections in its Gibbs sampling...")
 			end
 		end
 	end
@@ -478,7 +479,6 @@ function gibbsmcmc(nsmp::Int64; rng::MersenneTwister=MersenneTwister(), MHmix::F
 	
 	# Load the ODH files
 	cols = ["0-9","10-19","20-29","30-39","40-49","50-59","60-69","70-79","80+"];
-	frc_M = vaxld();
 	DF = CSV.read(sheet.csv_odh,DataFrame);
 	#  Store ODH daily infections over truncating to ti->tf interval
 	#   ti,tf are days after Jan 1, 2020
@@ -487,6 +487,9 @@ function gibbsmcmc(nsmp::Int64; rng::MersenneTwister=MersenneTwister(), MHmix::F
 	for i=1:9
 		measurements[cols[i]] = DF[!,cols[i]][ti:tf-1];
 	end
+	@bp
+	#  Load vaccination data
+	frc_M = vaxld(); # vaxld adjusts to ti=0-based index
 
 	# Define the gibbs data sheet
 	gibbssheet = gibbsdatamat();
@@ -533,7 +536,7 @@ function gibbsmcmc(nsmp::Int64; rng::MersenneTwister=MersenneTwister(), MHmix::F
 		if rand(rng) < MHmix
 			# MH sample by accept-reject under gibbscondprp
 			candprm = 0; candsheet=0; canddepmat=0; candauxmat=0; candSE=0;
-			flag_fd = false; nrej = 0.; mhprgbar = 0.; mhδprgbar = 1000.;
+			flag_fd = false; nrej = 0.; mhprgbar = 0.; mhδprgbar = 100.;
 			while !flag_fd
 				# Sample cand parameter values
 				candprm = deepcopy(initdatamat); 
@@ -565,7 +568,8 @@ function gibbsmcmc(nsmp::Int64; rng::MersenneTwister=MersenneTwister(), MHmix::F
 				logρ += gibbscondprp(candsheet,canddepmat,candauxmat,candSE);
 				
 				#   Uniformly restrict to subgraph
-				@bp if log(prmgr) < logρ
+				@bp 
+				if log(prmgr) < logρ
 					flag_fd = true;
 				else
 					nrej += 1
