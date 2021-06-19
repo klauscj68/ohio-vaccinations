@@ -449,6 +449,26 @@ function odhld()
 	return df
 end
 
+#%% mymvavg
+"""
+Perform a moving average smoothing of a vector. This may be called by 
+other libraries for computation of errors
+"""
+function mymvavg(v::Vector{Float64}; inc::Int64=7)
+	n = length(v);
+	inc = isodd(inc) ? inc : inc+1;
+	half = Int64((inc-1)/2);
+	
+	vsmth = Vector{Float64}(undef,n);
+	v = [repeat([v[1]],outer=(half,)); v; repeat([v[end]],outer=(half,))]
+	for pos=1:n
+		vsmth[pos] = sum(v[half+pos-half:half+pos+half])/inc;
+	end
+
+	return vsmth
+
+end
+
 #%% vaxld
 """
 Import a vaccination schedule from a csv like what is output by Chance's

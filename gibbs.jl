@@ -67,7 +67,7 @@ function gibbsdatamat()
 	#-----
 	# Time discretization
 	#  Runga-kutta step
-	δt = [1e-3,1e-2]; flagδt = true;
+	δt = [.5e-1,1.]; flagδt = false;
 	prmrg[:δt] = δt;
 	prmvary[:δt] = flagδt;
 
@@ -118,39 +118,39 @@ function gibbsmodelerr(sheet::data,myaux::Dict{Symbol,Float64},mydep::Dict{Symbo
 		       frc_M::Matrix{Float64},
 		       measurements::Dict{String,Vector{Float64}})
 	# Run the model for given choice of parameters
-	tpts,ypts = gibbsmodelrun(sheet,mydep,frc_M)
+	@timeit "gibbsmodelrun" tpts,yptsorig = gibbsmodelrun(sheet,mydep,frc_M)
 	
 	# For comparing to ODH, aggregate across Unvax, Vax, Unwill
-	ypts = reshape(ypts,(27,5,length(tpts)));
-	ypts = ypts[1:9,:,:] + ypts[10:18,:,:] + ypts[19:27,:,:];
+	@timeit "ypts" ypts = reshape(yptsorig,(27,5,length(tpts)));
+	@timeit "ypts" ypts = ypts[1:9,:,:] + ypts[10:18,:,:] + ypts[19:27,:,:];
 
 	# Quadrature compute daily new infections
 	#  Approx as ∫ₐᵇfdx ≈ ∑ᵢfᵢΔx = (b-a)*∑ᵢfᵢ/n
 	ti = Int64(floor(sheet.tspan[1])); tf = Int64(ceil(sheet.tspan[2]));
-	Etot = ypts[:,2,:];
+	@timeit "ypts" Etot = ypts[:,2,:];
 
-	dailyI = Matrix{Float64}(undef,tf-ti,9);
+	@timeit "dailyI init" dailyI = Matrix{Float64}(undef,tf-ti,9);
 	for i=ti:(tf-1)
 		# Find the tpts within [t,t+1)
-		flag = (i.<=tpts).*(tpts.<(i+1));
-	        nnz = sum(flag);
+		@timeit "find tpts" flag = (i.<=tpts).*(tpts.<(i+1));
+	        @timeit "count tpts" nnz = sum(flag);
 		
 		for j=1:9
 			# Integrate over day so b-a = 1.
-			dailyI[i-(ti-1),j] = 1/(sheet.d_E)*sum(flag.*Etot[j,:])/nnz;
+			@timeit "quadrature" dailyI[i-(ti-1),j] = 1/(sheet.d_E)*sum(flag.*Etot[j,:])/nnz;
 		end
 
 	end
-	dailyI *= (1/myaux[:rptλ]);
+	@timeit "dailyI rpt" dailyI *= (1/myaux[:rptλ]);
 
 	# Construct the error dictionary
-	SE = Matrix{Float64}(undef,tf-ti,9);
-	keys = ["0-9","10-19","20-29","30-39","40-49","50-59","60-69","70-79","80+"];
+	@timeit "SE init" SE = Matrix{Float64}(undef,tf-ti,9);
+	@timeit "dict keys" keys = ["0-9","10-19","20-29","30-39","40-49","50-59","60-69","70-79","80+"];
 	for i=1:9
-		SE[:,i] = abs.(dailyI[:,i] - measurements[keys[i]]).^2 ;
+		@timeit "SE" SE[:,i] = abs.(dailyI[:,i] - measurements[keys[i]]).^2 ;
 	end
 
-	return SE
+	@timeit "return" return SE
 end
 #%% randdir!
 """
@@ -293,11 +293,9 @@ function gibbscondprp(sheet::data,mydep::Dict{Symbol,Vector{Float64}},myaux::Dic
 	#        by the prior
 	#  Compute average error in each age bracket
 	MSE = sum(SE,dims=1)/size(SE)[1];
+	MSE = maximum(MSE);
 	
-	val = 0
-	for i=1:9
-		val += -log(MSE[i]/myaux[:bayσ]^2+2.);
-	end
+	val = -log(MSE/myaux[:bayσ]^2+2.);
 
 	return val
 end
@@ -317,7 +315,7 @@ function gibbscondsmp!(sheet::data,myaux::Dict{Symbol,Float64},gibbssheet::gibbs
 	# Sample by Metropolis-Hastings within Gibbs
 	#  Proposal distribution sampled by accept-reject
 	#   Take an upper envelope before taking log. This upper bound is consistent with gibbscondprp
-	uenv = 0.5^9;	
+	uenv = 0.5;	
 
 	canddatmat = datamat(sheet);
 	prm0 = !in(prmkey,keys(myaux)) ? 
@@ -384,7 +382,7 @@ function gibbscondsmp!(sheet::data,myaux::Dict{Symbol,Float64},gibbssheet::gibbs
 	
 	# Perform Metropolis-Hastings accept-reject
 	if log(rand(rng)) < mhlogratio
-		return prmpr,canddepmat,candauxmat,candSE
+		prmpr,canddepmat,candauxmat,candSE
 	else
 		return prm0,mydep,myaux,SE
 	end
@@ -485,9 +483,8 @@ function gibbsmcmc(nsmp::Int64; rng::MersenneTwister=MersenneTwister(), MHmix::F
 	ti = Int64(floor(sheet.tspan[1])); tf = Int64(ceil(sheet.tspan[2]));
 	measurements = Dict{String,Vector{Float64}}();
 	for i=1:9
-		measurements[cols[i]] = DF[!,cols[i]][ti:tf-1];
-	end
-	@bp
+		measurements[cols[i]] = mymvavg(DF[!,cols[i]][ti:tf-1]);
+	end	
 	#  Load vaccination data
 	frc_M = vaxld(); # vaxld adjusts to ti=0-based index
 
@@ -500,7 +497,8 @@ function gibbsmcmc(nsmp::Int64; rng::MersenneTwister=MersenneTwister(), MHmix::F
 
 		initsheet, initdepmat, initauxmat = gibbsinit!(sheet,myaux,gibbssheet; rng=rng)
 		initdatamat = datamat(initsheet);
-		initSE = gibbsmodelerr(initsheet,initauxmat,initdepmat,frc_M,measurements);
+		@bp
+		@timeit "initSE" initSE = gibbsmodelerr(initsheet,initauxmat,initdepmat,frc_M,measurements);
 	else 
 		# Load the data from files
 		DF_init = CSV.read(frestart,DataFrame,header=false);
@@ -561,7 +559,7 @@ function gibbsmcmc(nsmp::Int64; rng::MersenneTwister=MersenneTwister(), MHmix::F
 				end
 
 				#  Take an upper envelope before taking log. This upper bound is consistent with gibbscondprp
-				uenv = 0.5^9;
+				uenv = 0.5;
 				prmgr = rand(rng)*uenv;
 
 				candSE = gibbsmodelerr(candsheet,candauxmat,canddepmat,frc_M,measurements);
