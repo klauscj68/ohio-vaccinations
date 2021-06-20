@@ -50,7 +50,7 @@ function gibbsdatamat()
 	#-----
 	# Epidemic transmission
 	#  r0
-	r0 = [.5,3.]; flagr0 = true;
+	r0 = [.5,2.]; flagr0 = true;
 	prmrg[:r0] = r0; prmvary[:r0] = flagr0;
 
 	#-----
@@ -73,8 +73,8 @@ function gibbsdatamat()
 
 	#-----
 	# Auxilliary parameters
-	rptλ = [1.,6.]; flagrptλ = true;
-	bayσ = [5.,200.]; flagbayσ = true;
+	rptλ = [1.,4.]; flagrptλ = true;
+	bayσ = [4.,45.]; flagbayσ = true;
 	prmrg[:rptλ] = rptλ; prmrg[:bayσ] = bayσ;
 	prmvary[:rptλ] = flagrptλ; prmvary[:bayσ] = flagbayσ;
 
@@ -135,7 +135,7 @@ function gibbsmodelerr(sheet::data,myaux::Dict{Symbol,Float64},mydep::Dict{Symbo
 			val1 = myinterp(tpts,Etot[j,:],Float64(i));
 			val2 = myinterp(tpts,Etot[j,:],Float64(i+1));
 			# Integrate over day so b-a = 1 by trapezoidal
-			dailyI[i-(ti-1),j] = .5*(val1+val2);
+			dailyI[i-(ti-1),j] = 1/sheet.d_E*.5*(val1+val2);
 		end
 
 	end
@@ -271,8 +271,8 @@ function gibbslikelihood(sheet::data,mydep::Dict{Symbol,Vector{Float64}},myaux::
 	# Assume daily reported cases error is normal iid across each age cohort
 	val = 0
 	for i=1:9
-		ram = sum(SE[:,i])/length(SE[:,i]);
-		val += -.5*ram/myaux[:bayσ]^2 - log(myaux[:bayσ]);
+		MSE = sum(SE[:,i])/(size(SE)[1]);
+		val += -.5*MSE/myaux[:bayσ]^2 - log(myaux[:bayσ]);
 	end
 
 	return val
@@ -291,9 +291,9 @@ function gibbscondprp(sheet::data,mydep::Dict{Symbol,Vector{Float64}},myaux::Dic
 	#        by the prior
 	#  Compute average error in each age bracket
 	MSE = sum(SE,dims=1)/size(SE)[1];
-	MSE = maximum(MSE);
+	mymax = maximum(MSE);
 	
-	val = -log(MSE/myaux[:bayσ]^2+2.);
+	val = -log(mymax/myaux[:bayσ]^2+2.);
 
 	return val
 end
@@ -379,7 +379,7 @@ function gibbscondsmp!(sheet::data,myaux::Dict{Symbol,Float64},gibbssheet::gibbs
 	
 	# Perform Metropolis-Hastings accept-reject
 	if log(rand(rng)) < mhlogratio
-		prmpr,canddepmat,candauxmat,candSE
+		return prmpr,canddepmat,candauxmat,candSE
 	else
 		return prm0,mydep,myaux,SE
 	end
@@ -616,7 +616,7 @@ function gibbsmcmc(nsmp::Int64; rng::MersenneTwister=MersenneTwister(), MHmix::F
 		end
 		
 		Posterior[:,i],pos = csvdat(initdatamat,initauxmat);
-		Errors[i,1] = sum(initSE);
+		Errors[i,1] = sum(initSE)/length(initSE);
 
 		# Print progress
 		myprg = i/(nsmp+1);

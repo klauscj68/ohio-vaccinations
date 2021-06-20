@@ -22,7 +22,7 @@ function datamat()
 		      0.86, 0.8, 0.82,
 		      0.88, 0.74, 0.74];
 	#  Intended r0
-	mydata[:r0] = 1.1620695433381327;
+	mydata[:r0] = 1.34285;
 
 	#  Infection fatality rate
 	mydata[:IFR] = 1e-2*[0.001, 0.003, 0.01,
@@ -42,10 +42,10 @@ function datamat()
 
 	# Vaccine parameters
 	#  Vaccine susceptibility
-	mydata[:α] = 0.22369101657958515;
+	mydata[:α] = 0.205712;
 
 	#  Vaccine contagiousness
-	mydata[:ω] = 0.00028274830966965037;
+	mydata[:ω] = 0.977324;
 
 	#  Total available vaccine
 	mydata[:vtot] = Inf;
@@ -136,7 +136,7 @@ function datamat()
 				 127986.03477359236];
 
 	# ODE solver params
-	#  Time span for simulation
+	#  Time span for simulation. Day is relative Jan 1, 2020
 	mydata[:tspan] = [425., 515.];
 
 	#  Runga kutta time step
@@ -155,10 +155,10 @@ function auxmat()
 	mydata = Dict{Symbol,Float64}();
 	
 	# Factor used to scale ODH reported data 
-	mydata[:rptλ] = 2.9359450218356584;	
+	mydata[:rptλ] = 1.38892;	
 
 	# Standard deviation for the likelihood 
-	mydata[:bayσ] = 108.58090715085467;
+	mydata[:bayσ] = 48.0315;
 
 	# Factor for an additional increase in reporting factor due to variants
 	mydata[:rptinc] = 1.;
@@ -209,8 +209,8 @@ function csvdat(mydat::Dict{Symbol,Any},myaux::Dict{Symbol,Float64})
 	return datary, pos
 end
 function csvdat(datary::Vector{Float64},csv_vac::String="",csv_odh::String="")
-	mydat = Dict{Symbol,Any};
-	myaux = Dict{Symbol,Float64};
+	mydat = Dict{Symbol,Any}();
+	myaux = Dict{Symbol,Float64}();
 
 	# Primary
 	mydat[:d_E] = datary[1];
@@ -357,6 +357,7 @@ function odhld(sheet::data)
 		" conventions ...")
 	println("You should update the vaccination by age distribution in"*
 		" distr_vac field")
+	println("Manually input this data into the datamat file")
 	
 	# ODH Dashboard Vaccination
 	odhvax = sheet.distr_vac; 
@@ -387,7 +388,8 @@ function odhld(sheet::data)
 
 	# Aggregate the initial infection (sum over last 5 days)
 	#               initial exposed (unnormalized by d_E so can use
-	#                                MCMC properly on d_E)
+	#                                MCMC properly on d_E. d_E 
+	#                                normalization done in depmat)
 	#               total infection over pandemic (- deceased 
 	#                                              = recovered)
 	I0 = Vector{Float64}(undef,9);
