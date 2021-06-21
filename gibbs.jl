@@ -74,7 +74,7 @@ function gibbsdatamat()
 	#-----
 	# Auxilliary parameters
 	rptλ = [1.,4.]; flagrptλ = true;
-	bayσ = [4.,45.]; flagbayσ = true;
+	bayσ = [1.,5.]; flagbayσ = true;
 	prmrg[:rptλ] = rptλ; prmrg[:bayσ] = bayσ;
 	prmvary[:rptλ] = flagrptλ; prmvary[:bayσ] = flagbayσ;
 
@@ -638,6 +638,36 @@ mysaverng(rng);
 
 end
 
+#%% gibbscorr
+"""
+Given two sample vectors of 1d random variables, compute their correlation
+"""
+function gibbscorr(X::Array{Float64,1},Y::Array{Float64,1})
+	@assert length(X) == length(Y) "Need a common number of samples"
+	nmcmc = length(X);
+
+	# Compute the means
+	Xμ = sum(X)/nmcmc;
+	Yμ = sum(Y)/nmcmc;
+
+	# Compute the std dev
+	Xvar = X .- Xμ;
+	Xvar = Xvar.^2;
+	Xσ = sum(Xvar)/nmcmc;
+	Xσ = sqrt(Xσ);
+	
+	Yvar = Y .- Yμ;
+	Yvar = Yvar.^2;
+	Yσ = sum(Yvar)/nmcmc;
+	Yσ = sqrt(Yσ);
+
+	# Compute the correlation
+	cor = sum( (X .- Xμ).*(Y .- Yμ) )/nmcmc/( Xσ*Yσ );
+
+	return cor, Xμ, Yμ, Xσ, Yσ
+
+end
+
 #%% mergeoutputs
 """
 Given consecutive gibbs sample runs collected in their own Run# folder,
@@ -674,32 +704,90 @@ function mergeoutputs(idbeg::Integer,idend::Integer;flag_write::Bool=false)
 
 end
 
-#%% gibbscorr
+#%% gibbstraj
 """
-Given two sample vectors of 1d random variables, compute their correlation
+Compute trajectories for all the parameters output by gibbsmcmc
 """
-function gibbscorr(X::Array{Float64,1},Y::Array{Float64,1})
-	@assert length(X) == length(Y) "Need a common number of samples"
-	nmcmc = length(X);
-
-	# Compute the means
-	Xμ = sum(X)/nmcmc;
-	Yμ = sum(Y)/nmcmc;
-
-	# Compute the std dev
-	Xvar = X .- Xμ;
-	Xvar = Xvar.^2;
-	Xσ = sum(Xvar)/nmcmc;
-	Xσ = sqrt(Xσ);
+function gibbstraj(idbeg::Int64,idend::Int64;
+		   dwnsmp::Int64=50,flag_write::Bool=true,tspan=Vector{Float64}([NaN,NaN]))
 	
-	Yvar = Y .- Yμ;
-	Yvar = Yvar.^2;
-	Yσ = sum(Yvar)/nmcmc;
-	Yσ = sqrt(Yσ);
+	sheet = data();
+	frc_M = vaxld();
+	# Load tspan from data if it was not specified
+	if tspan == [NaN,NaN]	
+		tspan = sheet.tspan;
+	end
 
-	# Compute the correlation
-	cor = sum( (X .- Xμ).*(Y .- Yμ) )/nmcmc/( Xσ*Yσ );
+	# Load the MCMC smps
+	#  Used to group trajs into suff small chunks so can be saved. Stores 
+	#  number of samples in each Run.
+	nmcmc = Vector{Int64}(undef,idend-(idbeg-1));
+	shift = -(idbeg-1);
+	for i=idbeg:idend
+		df_mcmc = CSV.read("Run"*string(i)*"/GibbsMCMC.csv",DataFrame,header=false);
+		nmcmc[i+shift] = size(df_mcmc)[2]-1; # Bc mergeoutputs discards overlapping first sample
+	end
 
-	return cor, Xμ, Yμ, Xσ, Yσ
+	M_mcmc,M_err = mergeoutputs(idbeg,idend);
 
+	# Run the trajectories
+	nsmp = size(M_mcmc,2);
+	#  Define the axis
+	taxis = [tval for tval in LinRange(tspan[1],tspan[2],dwnsmp+1)];
+	#  Evaluate the models
+	M_trajs = Matrix{Float64}(undef,9*dwnsmp,nsmp+1);
+	M_trajs[:,1] = repeat(taxis[1:end-1],outer=(9,));
+	pos = 0.; δprg = .005;
+	for j=1:nsmp
+		mydat,myaux = csvdat(M_mcmc[:,j],sheet.csv_vac,sheet.csv_odh);
+		mydat[:tspan] = tspan;
+		mysheet = data(mydat);
+		mydep = depmat(sheet,myaux);
+		tpts,yptsorig = gibbsmodelrun(sheet,mydep,frc_M);
+
+		#-----
+		# For comparing to ODH, aggregate across Unvax, Vax, Unwill
+		ypts = reshape(yptsorig,(27,5,length(tpts)));
+		ypts = ypts[1:9,:,:] + ypts[10:18,:,:] + ypts[19:27,:,:];
+		# Quadrature compute daily new infections
+		#  Approx as ∫ₐᵇfdx ≈ ∑ᵢfᵢΔx = (b-a)*∑ᵢfᵢ/n
+		Etot = ypts[:,2,:]; # Age x time
+		dailyI = Matrix{Float64}(undef,dwnsmp,9); # time x Age
+		for i=1:dwnsmp
+			for k=1:9
+				val1 = myinterp(tpts,Etot[k,:],taxis[i]);
+				val2 = myinterp(tpts,Etot[k,:],taxis[i+1]);
+				# Integrate over day so b-a = 1 by trapezoidal
+				dailyI[i,k] = 1/mydat[:d_E]*.5*(val1+val2);
+			end	
+		end
+		M_trajs[:,j+1] = dailyI[:];
+		#-----
+		
+		prg = j/nsmp;
+		if prg >= pos + δprg
+			inc = floor((prg-pos)/δprg);
+			pos += inc*δprg;
+			println("Fraction $pos through with samples ...");
+		end
+
+	end
+
+	# Save to csv's
+	if flag_write
+		shift = -(idbeg-1);
+		for i=idbeg:idend
+			# Identify block of M_trajs with this Run's trials
+			pos1 = (i != idbeg) ? 1+sum(nmcmc[1:i+shift-1]) : 2 ;
+			pos2 = 1+sum(nmcmc[1:i+shift]);
+		
+			# Concatenate with first column being time axis
+			M_ram = [M_trajs[:,1] M_trajs[:,pos1:pos2]];
+			
+			# Write to csv
+			CSV.write("Run"*string(i)*"/GibbsTrajs.csv",DataFrame(M_ram),writeheader=false);
+		end
+	end
+
+	return M_trajs
 end
