@@ -738,8 +738,8 @@ function gibbstraj(idbeg::Int64,idend::Int64;
 		mydat,myaux = csvdat(M_mcmc[:,j],sheet.csv_vac,sheet.csv_odh);
 		mydat[:tspan] = tspan;
 		mysheet = data(mydat);
-		mydep = depmat(sheet,myaux);
-		tpts,yptsorig = gibbsmodelrun(sheet,mydep,frc_M);
+		mydep = depmat(mysheet,myaux);
+		tpts,yptsorig = gibbsmodelrun(mysheet,mydep,frc_M);
 
 		#-----
 		# For comparing to ODH, aggregate across Unvax, Vax, Unwill
