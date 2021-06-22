@@ -137,10 +137,10 @@ function datamat()
 
 	# ODE solver params
 	#  Time span for simulation. Day is relative Jan 1, 2020
-	mydata[:tspan] = [425., 515.];
+	mydata[:tspan] = [425., 515.]; # Run1: 515 Run2: 470
 
 	#  Runga kutta time step
-	mydata[:δt] = .1;
+	mydata[:δt] = .25;
 
 	return mydata
 

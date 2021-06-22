@@ -74,7 +74,7 @@ function gibbsdatamat()
 	#-----
 	# Auxilliary parameters
 	rptλ = [1.,4.]; flagrptλ = true;
-	bayσ = [1.,5.]; flagbayσ = true;
+	bayσ = [25.,60.]; flagbayσ = true;
 	prmrg[:rptλ] = rptλ; prmrg[:bayσ] = bayσ;
 	prmvary[:rptλ] = flagrptλ; prmvary[:bayσ] = flagbayσ;
 
@@ -270,9 +270,8 @@ function gibbslikelihood(sheet::data,mydep::Dict{Symbol,Vector{Float64}},myaux::
 
 	# Assume daily reported cases error is normal iid across each age cohort
 	val = 0
-	for i=1:9
-		MSE = sum(SE[:,i])/(size(SE)[1]);
-		val += -.5*MSE/myaux[:bayσ]^2 - log(myaux[:bayσ]);
+	for i=1:length(SE)
+		val += -.5*SE[i]/myaux[:bayσ]^2 - log(myaux[:bayσ]);
 	end
 
 	return val
@@ -285,13 +284,10 @@ Evaluate the log of Metropolis within Gibbs proposal distribution for given choi
 function gibbscondprp(sheet::data,mydep::Dict{Symbol,Vector{Float64}},myaux::Dict{Symbol,Float64},
 		      SE::Matrix{Float64})
 
-	# Use a proposal distribution like 1/((average(MSE))/sigma^2+2.) (= 1/(max(z-score)^2+.2.))
-	# in each age bracket. 
+	# Use a proposal distribution like 1/((max(SE))/sigma^2+2.) (= 1/(max(z-score)^2+.2.))
 	#  Note: that because of how used in condsmp! that this is actually multiplied 
 	#        by the prior
-	#  Compute average error in each age bracket
-	MSE = sum(SE,dims=1)/size(SE)[1];
-	mymax = maximum(MSE);
+	mymax = maximum(SE);
 	
 	val = -log(mymax/myaux[:bayσ]^2+2.);
 
@@ -524,7 +520,7 @@ function gibbsmcmc(nsmp::Int64; rng::MersenneTwister=MersenneTwister(), MHmix::F
 	Errors[1,1] = sum(initSE);
 	
 	#  For writing out progress
-	prgbar = 0; δprgbar = .05; nMH = 0; nGibbs = 0;
+	prgbar = 0; δprgbar = .01; nMH = 0; nGibbs = 0;
 
 	@inbounds for i=2:(nsmp+1)
 		if rand(rng) < MHmix
