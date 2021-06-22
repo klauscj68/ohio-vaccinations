@@ -757,7 +757,7 @@ function gibbstraj(idbeg::Int64,idend::Int64;
 				dailyI[i,k] = 1/mydat[:d_E]*.5*(val1+val2);
 			end	
 		end
-		M_trajs[:,j+1] = dailyI[:];
+		M_trajs[:,j+1] = 1/myaux[:rptλ]*dailyI[:];
 		#-----
 		
 		prg = j/nsmp;
