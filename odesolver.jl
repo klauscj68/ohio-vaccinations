@@ -68,7 +68,7 @@ function vacprt(sheet::data,t::Float64,
 			SubArray{Float64, 1, Matrix{Float64}, Tuple{UnitRange{Int64}, Int64}, true},
 			SubArray{Float64, 1, Base.ReshapedArray{Float64, 2, SubArray{Float64, 1, Matrix{Float64},
 				Tuple{Base.Slice{Base.OneTo{Int64}}, Int64}, true}, Tuple{}}, Tuple{UnitRange{Int64}, Int64}, true}},
-		Nv::Float64,frc_M::Matrix{Float64}=[0. 0. ; 0. 0.])
+		Nv::Float64,frc_M::Matrix{Float64}=[0. 0. ; 1. 0.])
 	
 	if isempty(sheet.csv_vac)
 		# Normalize distr_vac to probability mass for compartments
@@ -111,7 +111,7 @@ function flowfield(sheet::data,mydep::Dict{Symbol,Vector{Float64}},
 		   t::Float64,
 		   uorig::Union{Vector{Float64},
 				SubArray{Float64, 1, Matrix{Float64}, Tuple{Base.Slice{Base.OneTo{Int64}}, Int64}, true}},
-		   frc_M::Matrix{Float64}=[0. 0. ; 0. 0.])
+		   frc_M::Matrix{Float64}=[0. 0. ; 1. 0.])
 
 	# Reshape u from column vector into 3 arrays
 	n = length(uorig);

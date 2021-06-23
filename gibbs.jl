@@ -479,7 +479,7 @@ function gibbsmcmc(nsmp::Int64; rng::MersenneTwister=MersenneTwister(), MHmix::F
 		measurements[cols[i]] = mymvavg(DF[!,cols[i]][ti:tf-1]);
 	end	
 	#  Load vaccination data
-	frc_M = vaxld(); # vaxld adjusts to ti=0-based index
+	frc_M = (isempty(sheet.csv_vac)) ? [0. 0.; 1. 0.] : vaxld(); # vaxld adjusts to ti=0-based index
 
 	# Define the gibbs data sheet
 	gibbssheet = gibbsdatamat();
@@ -708,7 +708,7 @@ function gibbstraj(idbeg::Int64,idend::Int64;
 		   dwnsmp::Int64=50,flag_write::Bool=true,tspan=Vector{Float64}([NaN,NaN]))
 	
 	sheet = data();
-	frc_M = vaxld();
+	frc_M = (isempty(sheet.csv_vac)) ? [0. 0.; 1. 0.] : vaxld();
 	# Load tspan from data if it was not specified
 	if tspan == [NaN,NaN]	
 		tspan = sheet.tspan;
