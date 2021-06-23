@@ -462,9 +462,9 @@ function mymvavg(v::Vector{Float64}; inc::Int64=7)
 	half = Int64((inc-1)/2);
 	
 	vsmth = Vector{Float64}(undef,n);
-	v = [repeat([v[1]],outer=(half,)); v; repeat([v[end]],outer=(half,))]
+	vpad = [repeat([v[1]],outer=(half,)); v; repeat([v[end]],outer=(half,))]
 	for pos=1:n
-		vsmth[pos] = sum(v[half+pos-half:half+pos+half])/inc;
+		vsmth[pos] = sum(vpad[half+pos-half:half+pos+half])/inc;
 	end
 
 	return vsmth

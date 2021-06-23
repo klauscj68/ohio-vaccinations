@@ -353,7 +353,7 @@ function gibbscondsmp!(sheet::data,myaux::Dict{Symbol,Float64},gibbssheet::gibbs
 			
 
 		#  Uniformly restrict to subgraph
-		logρ += gibbscondprp(candsheet,canddepmat,candauxmat,candSE)
+		logρ = gibbscondprp(candsheet,canddepmat,candauxmat,candSE)
 		if log(prmgr) < logρ
 			flagfd = true;
 		else
