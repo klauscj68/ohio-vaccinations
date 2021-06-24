@@ -169,6 +169,12 @@ function auxmat()
 	# Weight for initial amount of infection among vaccinated
 	mydata[:vι0] = 0.;
 
+	# Factor used to additionally scale ODH reported exposure
+	mydata[:rptλE] = 1.;
+
+	# Factor used to additionally scale ODH reported infection
+	mydata[:rptλI] = 1.
+
 	return mydata
 end
 
@@ -180,7 +186,7 @@ dictionaries into an array and the other converts an array into a
 dictionary.
 """
 function csvdat(mydat::Dict{Symbol,Any},myaux::Dict{Symbol,Float64})
-	datary = Vector{Float64}(undef,179);
+	datary = Vector{Float64}(undef,181);
 
 	# Primary
 	datary[1] = mydat[:d_E];
@@ -212,6 +218,8 @@ function csvdat(mydat::Dict{Symbol,Any},myaux::Dict{Symbol,Float64})
 	datary[pos+2] = myaux[:bayσ];
 	datary[pos+3] = myaux[:rptinc];
 	datary[pos+4] = myaux[:vι0];
+	datary[pos+5] = myaux[:rptλE];
+	datary[pos+6] = myaux[:rptλI];
 
 	return datary, pos
 end
@@ -249,6 +257,8 @@ function csvdat(datary::Vector{Float64},csv_vac::String="",csv_odh::String="")
 	myaux[:bayσ] = datary[pos+2];
 	myaux[:rptinc] = datary[pos+3];
 	myaux[:vι0] = datary[pos+4];
+	myaux[:rptλE] = datary[pos+5];
+	myaux[:rptλI] = datary[pos+6];
 
 	return mydat,myaux
 end
@@ -529,13 +539,13 @@ function depmat(sheet::data,auxmat::Dict{Symbol,Float64})
 	vaxdstr0 = sheet.Sv0./sheet.N;
 
 	# E0 across groups
-	agg = auxmat[:rptλ]*sheet.d_E*sheet.E0;
+	agg = auxmat[:rptλE]*auxmat[:rptλ]*sheet.d_E*sheet.E0;
 	mydata[:Ev0] = agg.*vaxdstr0*auxmat[:vι0];
 	mydata[:E0] = (agg - mydata[:Ev0])*(1-sheet.vh);
 	mydata[:Eu0] = (agg - mydata[:Ev0])*sheet.vh;
 
 	# I0 across groups
-	agg = auxmat[:rptλ]*sheet.I0;
+	agg = auxmat[:rptλI]*auxmat[:rptλ]*sheet.I0;
 	mydata[:Iv0] = agg.*vaxdstr0*auxmat[:vι0];
 	mydata[:I0] = (agg - mydata[:Iv0])*(1-sheet.vh);
 	mydata[:Iu0] = (agg - mydata[:Iv0])*sheet.vh;

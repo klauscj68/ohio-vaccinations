@@ -35,7 +35,7 @@ nsmp: Number of mcmc samples desired
 """
 function gibbsdatamat()
 	# Number of model parameters
-	dim = 178;
+	dim = 181;
 
 	#-----
 	# Disease parameters
@@ -74,10 +74,14 @@ function gibbsdatamat()
 	#-----
 	# Auxilliary parameters
 	rptλ = [1.,4.]; flagrptλ = true;
-	bayσ = [25.,60.]; flagbayσ = true;
+	bayσ = [20.,45.]; flagbayσ = true;
 	vι0 = [0.,1.]; flagvι0 = true;
-	prmrg[:rptλ] = rptλ; prmrg[:bayσ] = bayσ; prmrg[:vι0] = vι0;
-	prmvary[:rptλ] = flagrptλ; prmvary[:bayσ] = flagbayσ; prmvary[:vι0] = flagvι0;
+	rptλE = [1.,10.]; flagrptλE = true;
+	rptλI = [1.,10.]; flagrptλI = true;
+	prmrg[:rptλ] = rptλ; prmrg[:bayσ] = bayσ; 
+	prmrg[:vι0] = vι0; prmrg[:rptλE] = rptλE; prmrg[:rptλI] = rptλI;
+	prmvary[:rptλ] = flagrptλ; prmvary[:bayσ] = flagbayσ; 
+	prmvary[:vι0] = flagvι0; prmvary[:rptλE] = flagrptλE; prmvary[:rptλI] = flagrptλI; 
 
 	#-----
 	# Aggregate dictionary keys
@@ -213,6 +217,11 @@ function gibbsprior(sheet::data,myaux::Dict{Symbol,Float64},mydep::Dict{Symbol,V
 	flag = (pop .> sheet.N);
 	nnz = sum(flag);
 	if nnz != 0	
+		return -Inf
+	end
+	
+	# Combined reporting factors not greater than 10
+	if (myaux[:rptλ]*myaux[:rptλE] > 10)|(myaux[:rptλ]*myaux[:rptλI] > 10)
 		return -Inf
 	end
 
