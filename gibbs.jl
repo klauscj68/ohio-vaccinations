@@ -461,9 +461,15 @@ Wrapper for the entire Gibbs sampling procedure
 MHmix:: is optional argument that combines Gibbs sampler with Metropolis-Hastings like a mixture
         model to ensure ergodicity even though the prior may conceivably introduce disconectedness 
 	in the posterior. The proposal distribution is a simple uniform draw from ranges in 
-	gibbssheet. 
+	gibbssheet.
+
+RWmix:: is optional argument that mixes a random walk MH into the 1d conditional Gibbs samples. The 
+        idea is that the global proposal helps mixing, while the local helps refinement
+RWσ:: is optional argument specifying the standard deviation for the random walk as a percentage of
+      the range in gibbssheet
 """
-function gibbsmcmc(nsmp::Int64; rng::MersenneTwister=MersenneTwister(), MHmix::Float64=0., frestart::String="START")
+function gibbsmcmc(nsmp::Int64; rng::MersenneTwister=MersenneTwister(), MHmix::Float64=0., frestart::String="START",
+	                        RWmix::Float64=0., RWσ::Float64=.02)
 	@assert (nsmp >= 2) "Need at least two samples"
 	
 	# Extract csv file names from standard sheet for loading and writing dictionaries to arrays
@@ -590,24 +596,66 @@ function gibbsmcmc(nsmp::Int64; rng::MersenneTwister=MersenneTwister(), MHmix::F
 			end
 			nMH += 1;
 		else
-			# Gibbs sample
+			# Metropolis within Gibbs
 			for key in gibbssheet.prmkeys
-				if gibbssheet.prmvary[key]
-					prmpr,canddepmat,candauxmat,candSE = gibbscondsmp!(initsheet,initauxmat,gibbssheet,
-						                                            frc_M,measurements,initSE,
-						                                            key; rng=rng);
-					if !in(key,keys(initauxmat))
-						initdatamat[key] = prmpr;
-					else
-						initauxmat[key] = prmpr;
-					end
+				if gibbssheet.prmvary[key] 
+					if rand(rng) > RWmix
+						# By Gibbs condprp
+						prmpr,canddepmat,candauxmat,candSE = gibbscondsmp!(initsheet,initauxmat,gibbssheet,
+							                                            frc_M,measurements,initSE,
+						        	                                    key; rng=rng);
+						if !in(key,keys(initauxmat))
+							initdatamat[key] = prmpr;
+						else
+							initauxmat[key] = prmpr;
+						end
 	
-					initsheet = data(initdatamat);
-					initdepmat = canddepmat;
-					initauxmat = candauxmat;
-					initSE = candSE;
-				
+						initsheet = data(initdatamat);
+						initdepmat = canddepmat;
+						initauxmat = candauxmat;
+						initSE = candSE;
+					
+					else
+						# By Random Walk
+						candprm = deepcopy(initdatamat);
+						candauxmat = deepcopy(initauxmat);
+						
+						Δ = gibbssheet.prmrg[key][2] - gibbssheet.prmrg[key][1];
+						prmpr = !in(key,keys(candauxmat)) ? 
+						          initdatamat[key] + RWσ*Δ*randn(rng) : 
+							   initauxmat[key] + RWσ*Δ*randn(rng);
+
+						if !in(key,keys(candauxmat))
+							candprm[key] = prmpr;
+						else
+							candauxmat[key] = prmpr;
+						end
+
+						candsheet = data(candprm);
+						canddepmat = depmat(candsheet,candauxmat);
+
+						logρ = gibbsprior(candsheet,candauxmat,canddepmat,gibbssheet);
+						if logρ != -Inf
+							# Check for MH acceptance when admissible
+							candSE = gibbsmodelerr(candsheet,candauxmat,canddepmat,frc_M,measurements);
+							mhlogratio = gibbslikelihood(candsheet,canddepmat,candauxmat,candSE) -
+							              gibbslikelihood(initsheet,initdepmat,initauxmat,initSE);
+							
+							if log(rand(rng)) < mhlogratio
+								# Accept the proposed candidate
+								initdatamat = candprm;
+								initsheet = candsheet;
+								initdepmat = canddepmat;
+								initauxmat = candauxmat;
+								initSE = candSE;
+							end
+						end
+
+					end
+
 				end
+
+				
 			end	
 			nGibbs += 1;
 		end
