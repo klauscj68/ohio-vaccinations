@@ -556,7 +556,7 @@ function gibbsmcmc(nsmp::Int64; rng::MersenneTwister=MersenneTwister(), MHmix::F
 				prmgr = rand(rng)*uenv;
 
 				candSE = gibbsmodelerr(candsheet,candauxmat,canddepmat,frc_M,measurements);
-				logρ += gibbscondprp(candsheet,canddepmat,candauxmat,candSE);
+				logρ = gibbscondprp(candsheet,canddepmat,candauxmat,candSE);
 				
 				#   Uniformly restrict to subgraph 
 				if log(prmgr) < logρ
