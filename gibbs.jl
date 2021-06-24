@@ -75,8 +75,9 @@ function gibbsdatamat()
 	# Auxilliary parameters
 	rptλ = [1.,4.]; flagrptλ = true;
 	bayσ = [25.,60.]; flagbayσ = true;
-	prmrg[:rptλ] = rptλ; prmrg[:bayσ] = bayσ;
-	prmvary[:rptλ] = flagrptλ; prmvary[:bayσ] = flagbayσ;
+	vι0 = [0.,1.]; flagvι0 = true;
+	prmrg[:rptλ] = rptλ; prmrg[:bayσ] = bayσ; prmrg[:vι0] = vι0;
+	prmvary[:rptλ] = flagrptλ; prmvary[:bayσ] = flagbayσ; prmvary[:vι0] = flagvι0;
 
 	#-----
 	# Aggregate dictionary keys

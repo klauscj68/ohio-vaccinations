@@ -166,6 +166,9 @@ function auxmat()
 	# Factor for an additional increase in reporting factor due to variants
 	mydata[:rptinc] = 1.;
 
+	# Weight for initial amount of infection among vaccinated
+	mydata[:vι0] = 0.;
+
 	return mydata
 end
 
@@ -177,7 +180,7 @@ dictionaries into an array and the other converts an array into a
 dictionary.
 """
 function csvdat(mydat::Dict{Symbol,Any},myaux::Dict{Symbol,Float64})
-	datary = Vector{Float64}(undef,178);
+	datary = Vector{Float64}(undef,179);
 
 	# Primary
 	datary[1] = mydat[:d_E];
@@ -208,6 +211,7 @@ function csvdat(mydat::Dict{Symbol,Any},myaux::Dict{Symbol,Float64})
 	datary[pos+1] = myaux[:rptλ];
 	datary[pos+2] = myaux[:bayσ];
 	datary[pos+3] = myaux[:rptinc];
+	datary[pos+4] = myaux[:vι0];
 
 	return datary, pos
 end
@@ -244,6 +248,7 @@ function csvdat(datary::Vector{Float64},csv_vac::String="",csv_odh::String="")
 	myaux[:rptλ] = datary[pos+1];
 	myaux[:bayσ] = datary[pos+2];
 	myaux[:rptinc] = datary[pos+3];
+	myaux[:vι0] = datary[pos+4];
 
 	return mydat,myaux
 end
@@ -525,25 +530,25 @@ function depmat(sheet::data,auxmat::Dict{Symbol,Float64})
 
 	# E0 across groups
 	agg = auxmat[:rptλ]*sheet.d_E*sheet.E0;
-	mydata[:Ev0] = agg.*vaxdstr0*sheet.α;
+	mydata[:Ev0] = agg.*vaxdstr0*auxmat[:vι0];
 	mydata[:E0] = (agg - mydata[:Ev0])*(1-sheet.vh);
 	mydata[:Eu0] = (agg - mydata[:Ev0])*sheet.vh;
 
 	# I0 across groups
 	agg = auxmat[:rptλ]*sheet.I0;
-	mydata[:Iv0] = agg.*vaxdstr0*sheet.α;
+	mydata[:Iv0] = agg.*vaxdstr0*auxmat[:vι0];
 	mydata[:I0] = (agg - mydata[:Iv0])*(1-sheet.vh);
 	mydata[:Iu0] = (agg - mydata[:Iv0])*sheet.vh;
 
 	# R0 across groups
 	agg = auxmat[:rptλ]*sheet.R0;
-	mydata[:Rv0] = agg.*vaxdstr0*sheet.α;
+	mydata[:Rv0] = agg.*vaxdstr0*auxmat[:vι0];
 	mydata[:R0] = (agg - mydata[:Rv0])*(1-sheet.vh);
 	mydata[:Ru0] = (agg - mydata[:Rv0])*sheet.vh;
 
 	# D0 across groups
 	agg = sheet.D0;
-	mydata[:Dv0] = agg.*vaxdstr0*sheet.α;
+	mydata[:Dv0] = agg.*vaxdstr0*auxmat[:vι0];
 	mydata[:D0] = (agg - mydata[:Dv0])*(1-sheet.vh);
 	mydata[:Du0] = (agg - mydata[:Dv0])*sheet.vh;
 
