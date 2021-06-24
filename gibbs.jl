@@ -144,7 +144,7 @@ function gibbsmodelerr(sheet::data,myaux::Dict{Symbol,Float64},mydep::Dict{Symbo
 		end
 
 	end
-	dailyI *= (1/myaux[:rptλ]);
+	dailyI *= (1/myaux[:rptλ])*(1/myaux[:rptλE]);
 
 	# Construct the error dictionary
 	SE = Matrix{Float64}(undef,tf-ti,9);
