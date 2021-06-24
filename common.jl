@@ -22,7 +22,7 @@ function datamat()
 		      0.86, 0.8, 0.82,
 		      0.88, 0.74, 0.74];
 	#  Intended r0
-	mydata[:r0] = 1.34285;
+	mydata[:r0] = 1.1620695433381327;
 
 	#  Infection fatality rate
 	mydata[:IFR] = 1e-2*[0.001, 0.003, 0.01,
@@ -42,10 +42,10 @@ function datamat()
 
 	# Vaccine parameters
 	#  Vaccine susceptibility
-	mydata[:α] = 0.205712;
+	mydata[:α] = 0.22369101657958515;
 
 	#  Vaccine contagiousness
-	mydata[:ω] = 0.977324;
+	mydata[:ω] = 0.00028274830966965037;
 
 	#  Total available vaccine
 	mydata[:vtot] = Inf;
@@ -81,63 +81,66 @@ function datamat()
 	mydata[:csv_odh] = "ODH_Data/ODH_0616.csv";
 
 	#  Aggregate unvaccinated population
-	mydata[:I0] = [  670.2065124033747,
-		         692.7934875966254,
-			  1405.0,
-			   1254.0,
-			    1124.0,
-			     1120.0,
-			       843.0,
-			         365.0,
+	mydata[:I0] = [  670.2065124033747
+		         692.7934875966254
+			  1405.0
+			   1254.0
+			    1124.0
+			     1120.0
+			       843.0
+			         365.0
 				   155.0];
 	
 	#  Aggregate initial exposed apartment before d_E normalization
-	mydata[:E0] = [ 172.59169908553523,
-		        178.40830091446477,
-			 358.0,
-			  314.0,
-			   263.0,
-			    256.0,
-			     171.0,
-			       88.0,
+	mydata[:E0] = [ 172.59169908553523
+		        178.40830091446477
+			 358.0
+			  314.0
+			   263.0
+			    256.0
+			     171.0
+			       88.0
 			         47.0];
 
 	#  Aggregate deceased
-	mydata[:D0] = [    2.950285454453595,
-		           3.049714545546405,
-			      22.0,
-			         96.0,
-				   252.0,
-				     915.0,
-				      2638.0,
-				       4959.0,
+	mydata[:D0] = [    2.950285454453595
+		           3.049714545546405
+			      22.0
+			         96.0
+				   252.0
+				     915.0
+				      2638.0
+				       4959.0
 				        9627.0];
 
 	#  Aggregate recovered
-	mydata[:R0] = [  61335.94288384782,
-		         63403.057116152166,
-			  176059.0,
-			   146471.0,
-			    140021.0,
-			     146513.0,
-			      112669.0,
-			        62862.0,
+	mydata[:R0] = [  61335.94288384782
+		         63403.057116152166
+			  176059.0
+			   146471.0
+			    140021.0
+			     146513.0
+			      112669.0
+			        62862.0
 				  41326.0];
 
 	#  Aggregate vaccinated at time 0
-	mydata[:Sv0] = [  56325.05481156863,
-			  56325.05481156863,
-			   196255.86959108495,
-			    220740.79273425453,
-			     236357.1971584638,
-			      304851.48092750035,
-			       357869.2722465017,
-			        237587.2429454651,
+	#   Although the key says Sv0, the code treats it as the aggregate
+	#   of all vaccinated and then splits these across categories in 
+	#   depmat
+	mydata[:Sv0] = [  56325.05481156863
+			  56325.05481156863
+			   196255.86959108495
+			    220740.79273425453
+			     236357.1971584638
+			      304851.48092750035
+			       357869.2722465017
+			        237587.2429454651
 				 127986.03477359236];
 
 	# ODE solver params
 	#  Time span for simulation. Day is relative Jan 1, 2020
-	mydata[:tspan] = [425., 515.]; # Run1: 515 Run2: 470
+	mydata[:tspan] = [425., 508.]; # Run1: 515 Run2: 470
 
 	#  Runga kutta time step
 	mydata[:δt] = .25;
@@ -155,10 +158,10 @@ function auxmat()
 	mydata = Dict{Symbol,Float64}();
 	
 	# Factor used to scale ODH reported data 
-	mydata[:rptλ] = 1.38892;	
+	mydata[:rptλ] = 2.9359450218356584;	
 
 	# Standard deviation for the likelihood 
-	mydata[:bayσ] = 48.0315;
+	mydata[:bayσ] = 108.58090715085467;
 
 	# Factor for an additional increase in reporting factor due to variants
 	mydata[:rptinc] = 1.;
@@ -421,7 +424,7 @@ function odhld(sheet::data)
 	# Compute the initial recovered
 	R0 = Cum0 - D0;
 
-	# Compute the initial vaccinated
+	# Compute all initial vaccinated
 	dfvax = CSV.read(fname[1:end-4]*"_vax.csv",DataFrame);
 	dates = dfvax[!,:time];
 	pos = 0; flagfd = false;
@@ -513,31 +516,47 @@ end
 Define a dictionary using the inputs of datamat() and auxmat() which
 updates the values of parameters depending on others
 """
-function depmat(sheet::data,auxmat::Dict{Symbol,Float64})
+function depmat(sheet::data,auxmat::Dict{Symbol,Float64})	
 		
 	mydata = Dict{Symbol,Vector{Float64}}();
 	
 	# Initial conditions
-	mydata[:E0] = auxmat[:rptλ]*(1-sheet.vh)*(1-sheet.α)*sheet.d_E*sheet.E0;
-	mydata[:Ev0] = auxmat[:rptλ]*(1-sheet.vh)*sheet.α*sheet.d_E*sheet.E0;
-	mydata[:Eu0] = auxmat[:rptλ]*sheet.vh*sheet.d_E*sheet.E0;
-	mydata[:I0] = auxmat[:rptλ]*(1-sheet.vh)*(1-sheet.α)*sheet.I0;
-	mydata[:Iv0] = auxmat[:rptλ]*(1-sheet.vh)*sheet.α*sheet.I0;
-	mydata[:Iu0] = auxmat[:rptλ]*sheet.vh*sheet.I0;
-	mydata[:R0] = auxmat[:rptλ]*(1-sheet.vh)*(1-sheet.α)*sheet.R0;
-	mydata[:Rv0] = auxmat[:rptλ]*(1-sheet.vh)*sheet.α*sheet.R0;
-	mydata[:Ru0] = auxmat[:rptλ]*sheet.vh*sheet.R0;
-	mydata[:D0] = (1-sheet.vh)*(1-sheet.α)*sheet.D0;
-	mydata[:Dv0] = (1-sheet.vh)*sheet.α*sheet.D0;
-	mydata[:Du0] = sheet.vh*sheet.D0;
-	mydata[:Sv0] = sheet.Sv0;
-	ram = sheet.N - (mydata[:E0] + mydata[:Ev0] + mydata[:Eu0] +
+	vaxdstr0 = sheet.Sv0./sheet.N;
+
+	# E0 across groups
+	agg = auxmat[:rptλ]*sheet.d_E*sheet.E0;
+	mydata[:Ev0] = agg.*vaxdstr0*sheet.α;
+	mydata[:E0] = (agg - mydata[:Ev0])*(1-sheet.vh);
+	mydata[:Eu0] = (agg - mydata[:Ev0])*sheet.vh;
+
+	# I0 across groups
+	agg = auxmat[:rptλ]*sheet.I0;
+	mydata[:Iv0] = agg.*vaxdstr0*sheet.α;
+	mydata[:I0] = (agg - mydata[:Iv0])*(1-sheet.vh);
+	mydata[:Iu0] = (agg - mydata[:Iv0])*sheet.vh;
+
+	# R0 across groups
+	agg = auxmat[:rptλ]*sheet.R0;
+	mydata[:Rv0] = agg.*vaxdstr0*sheet.α;
+	mydata[:R0] = (agg - mydata[:Rv0])*(1-sheet.vh);
+	mydata[:Ru0] = (agg - mydata[:Rv0])*sheet.vh;
+
+	# D0 across groups
+	agg = sheet.D0;
+	mydata[:Dv0] = agg.*vaxdstr0*sheet.α;
+	mydata[:D0] = (agg - mydata[:Dv0])*(1-sheet.vh);
+	mydata[:Du0] = (agg - mydata[:Dv0])*sheet.vh;
+
+	# S0 across groups
+	mydata[:Sv0] = sheet.Sv0 - mydata[:Ev0] - mydata[:Iv0] 
+	                         - mydata[:Rv0] - mydata[:Dv0];
+	agg = sheet.N - (mydata[:E0] + mydata[:Ev0] + mydata[:Eu0] +
 			 mydata[:I0] + mydata[:Iv0] + mydata[:Iu0] + 
 			 mydata[:R0] + mydata[:Rv0] + mydata[:Ru0] + 
 			 mydata[:D0] + mydata[:Dv0] + mydata[:Du0] +
 			 mydata[:Sv0]);
-	mydata[:S0] = (1-sheet.vh)*ram;
-	mydata[:Su0] = sheet.vh*ram;
+	mydata[:S0] = (1-sheet.vh)*agg;
+	mydata[:Su0] = sheet.vh*agg;
 
 	# Reproduction number
 	M = sheet.β.*sheet.C*sheet.d_I;
