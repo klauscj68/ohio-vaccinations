@@ -289,7 +289,11 @@ end
 
 #%% gibbscondprp
 """
-Evaluate the log of Metropolis within Gibbs proposal distribution for given choice of model parameters
+Evaluate the log of Metropolis within Gibbs proposal distribution for given choice of model parameters.
+The code assumes elsewhere that the condprp distribution is absolutely continuous with respect to the 
+prior distribution. In effect that means this distribution below is multiplied by a characteristic for
+where the prior is nonzero. That extra term is not included here, but the code enforces this when it
+uses this proposal.
 """
 function gibbscondprp(sheet::data,mydep::Dict{Symbol,Vector{Float64}},myaux::Dict{Symbol,Float64},
 		      SE::Matrix{Float64})
@@ -378,8 +382,8 @@ function gibbscondsmp!(sheet::data,myaux::Dict{Symbol,Float64},gibbssheet::gibbs
 	# Compute the log of the Metropolis-Hastings acceptance ratio
 	#  Assymetric proposal means ratio is pi(y)/pi(x)*q(x|y)/q(y|x)
 	#   For our accept-reject scheme, x and y are independent under q
-	mhlogratio = gibbslikelihood(candsheet,canddepmat,candauxmat,candSE) - 
-	                 gibbslikelihood(sheet,mydep,myaux,SE) +
+	mhlogratio = gibbslikelihood(candsheet,canddepmat,candauxmat,candSE) + gibbsprior(candsheet,candauxmat,canddepmat,gibbssheet) - 
+			gibbslikelihood(sheet,mydep,myaux,SE) - gibbsprior(sheet,myaux,mydep,gibbssheet) +
 		      gibbscondprp(sheet,mydep,myaux,SE) - 
 		          gibbscondprp(candsheet,canddepmat,candauxmat,candSE);
 	
@@ -590,8 +594,8 @@ function gibbsmcmc(nsmp::Int64; rng::MersenneTwister=MersenneTwister(), MHmix::F
 			# Compute log of MH acceptance factor
 			#  Assymetric proposal means ratio is pi(y)/pi(x)*q(x|y)/q(y|x)
 			#   For our accept-reject scheme, x and y are independent under q
-			mhlogratio = gibbslikelihood(candsheet,canddepmat,candauxmat,candSE) -
-			                 gibbslikelihood(initsheet,initdepmat,initauxmat,initSE) +
+			mhlogratio = gibbslikelihood(candsheet,canddepmat,candauxmat,candSE) + gibbsprior(candsheet,candauxmat,canddepmat,gibbssheet) -
+					gibbslikelihood(initsheet,initdepmat,initauxmat,initSE) - gibbsprior(initsheet,initauxmat,initdepmat,gibbssheet) +
 				     gibbscondprp(initsheet,initdepmat,initauxmat,initSE) -
 				         gibbscondprp(candsheet,canddepmat,candauxmat,candSE);	    
 						
@@ -647,8 +651,10 @@ function gibbsmcmc(nsmp::Int64; rng::MersenneTwister=MersenneTwister(), MHmix::F
 						if logρ != -Inf
 							# Check for MH acceptance when admissible
 							candSE = gibbsmodelerr(candsheet,candauxmat,canddepmat,frc_M,measurements);
-							mhlogratio = gibbslikelihood(candsheet,canddepmat,candauxmat,candSE) -
-							              gibbslikelihood(initsheet,initdepmat,initauxmat,initSE);
+							mhlogratio = gibbslikelihood(candsheet,canddepmat,candauxmat,candSE) + 
+							                gibbsprior(candsheet,candauxmat,canddepmat,gibbssheet) -
+							              gibbslikelihood(initsheet,initdepmat,initauxmat,initSE) - 
+								         gibbsprior(initsheet,initauxmat,initdepmat,gibbssheet);
 							
 							if log(rand(rng)) < mhlogratio
 								# Accept the proposed candidate
