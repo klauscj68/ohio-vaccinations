@@ -356,6 +356,8 @@ function gibbscondsmp!(sheet::data,myaux::Dict{Symbol,Float64},gibbssheet::gibbs
 			candSE = gibbsmodelerr(candsheet,candauxmat,canddepmat,frc_M,measurements);
 		else	
 			candauxmat[prmkey] = prmpr;
+			candsheet = data(canddatmat);
+			canddepmat = depmat(candsheet,candauxmat);
 			
 			# Fast check if admissible
 			logρ = gibbsprior(candsheet,candauxmat,canddepmat,gibbssheet);
