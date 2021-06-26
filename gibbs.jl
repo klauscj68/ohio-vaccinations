@@ -341,33 +341,23 @@ function gibbscondsmp!(sheet::data,myaux::Dict{Symbol,Float64},gibbssheet::gibbs
 		smp = rand(rng); prmpr = (1-smp)*gibbssheet.prmrg[prmkey][1]+smp*gibbssheet.prmrg[prmkey][2];
 		smp = rand(rng); prmgr = smp*uenv;
 		
-		# Update for new random sample and evaluate model error for these parameters if required
+		# Update for new random sample and evaluate model error for these parameters
 		if !in(prmkey,keys(myaux))
 			canddatmat[prmkey] = prmpr;
-			candsheet = data(canddatmat);
-			canddepmat = depmat(candsheet,candauxmat);
-			
-			# Fast check if admissible
-			logρ = gibbsprior(candsheet,candauxmat,canddepmat,gibbssheet);
-			if logρ == -Inf	
-				continue
-			end
-
-			candSE = gibbsmodelerr(candsheet,candauxmat,canddepmat,frc_M,measurements);
-		else	
+		else
 			candauxmat[prmkey] = prmpr;
-			candsheet = data(canddatmat);
-			canddepmat = depmat(candsheet,candauxmat);
-			
-			# Fast check if admissible
-			logρ = gibbsprior(candsheet,candauxmat,canddepmat,gibbssheet);
-			if logρ == -Inf
-				continue
-			end
-
 		end
-			
+		candsheet = data(canddatmat);
+		canddepmat = depmat(candsheet,candauxmat);
+		
+		# Fast check if admissible
+		logρ = gibbsprior(candsheet,candauxmat,canddepmat,gibbssheet);
+		if logρ == -Inf	
+			continue
+		end
 
+		candSE = gibbsmodelerr(candsheet,candauxmat,canddepmat,frc_M,measurements);	
+			
 		#  Uniformly restrict to subgraph
 		logρ = gibbscondprp(candsheet,canddepmat,candauxmat,candSE)
 		if log(prmgr) < logρ
