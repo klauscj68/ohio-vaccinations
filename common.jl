@@ -309,20 +309,20 @@ struct data
 	function data(datamat::Vector{Union{Float64,String}})
 		d_E,d_I = datamat[1:2];
 		β = datamat[3:11]; r0 = datamat[12]; 
-			IFR = datamat[13:20];
-		N = datamat[21:29];
-		α,ω,vtot,vh = datamat[30:33];  
-		csv_vac = datamat[34]; distr_vac = datamat[35:43];
-			 vrate = datamat[44];
-		C = reshape(datamat[45:125],(9,9));
-		ram = reshape(datamat[126:170],(9,5)); 
+			IFR = datamat[13:21];
+		N = datamat[22:30];
+		α,ω,vtot,vh = datamat[31:34];  
+		csv_vac = datamat[35]; distr_vac = datamat[36:44];
+			 vrate = datamat[45];
+		C = reshape(datamat[46:126],(9,9));
+		csv_odh = datamat[127];
+		ram = reshape(datamat[128:172],(9,5)); 
 			I0 = ram[:,1];
 			E0 = ram[:,2]; 
 			R0 = ram[:,3]; 
 			D0 = ram[:,4]; 
 			Sv0 = ram[:,5];
-		tspan = datamat[171:172]; δt = datamat[173];
-		csv_odh = datamat[174];
+		tspan = datamat[173:174]; δt = datamat[175];
 
 		return new(d_E,d_I,
 			   β,r0,IFR,
@@ -492,7 +492,7 @@ end
 #%% vaxld
 """
 Import a vaccination schedule from a csv like what is output by Chance's
-routines
+routines time 0 matches sheet.tspan[1]
 """
 function vaxld(sheet::data)
 	# Load the csv
