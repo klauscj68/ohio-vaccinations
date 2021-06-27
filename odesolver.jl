@@ -131,9 +131,12 @@ function flowfield(sheet::data,mydep::Dict{Symbol,Vector{Float64}},
 	# Compute size of vaccinated population for possibile limit to vax
 	Nv = sum(Y);
 
+	# Compute linear change in scale of r0 if desired
+	r0λ = 1. + t/(mydep[:Δt][1])*((mydep[:r0λ][1])-1.);
+
 	# Compute ODE systems
 	#  Unvaccinated
-	 DS = (-S.*mydep[:β]).*(sheet.C*(
+	 DS = r0λ*(-S.*mydep[:β]).*(sheet.C*(
 			       (I+sheet.ω*Iv+Ix)./(sheet.N-D-Dv-Dx)
 			       )
 			    );
@@ -149,7 +152,7 @@ function flowfield(sheet::data,mydep::Dict{Symbol,Vector{Float64}},
 
 	#  Vaccinated
 	DS = sheet.α*
-	     (-Sv.*mydep[:β]).*(sheet.C*(
+	     r0λ*(-Sv.*mydep[:β]).*(sheet.C*(
 				 (I+sheet.ω*Iv+Ix)./(sheet.N-D-Dv-Dx)
 				)
 			     );
@@ -163,7 +166,7 @@ function flowfield(sheet::data,mydep::Dict{Symbol,Vector{Float64}},
 	DY = [DS DE DI DR DD];
 
 	#  Unwilling to vaccinate
-	DS = (-Sx.*mydep[:β]).*(sheet.C*(
+	DS = r0λ*(-Sx.*mydep[:β]).*(sheet.C*(
 				 (I+sheet.ω*Iv+Ix)./(sheet.N-D-Dv-Dx)
 				)
 			     );

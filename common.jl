@@ -174,6 +174,12 @@ function auxmat()
 
 	# Factor used to additionally scale ODH reported infection
 	mydata[:rptλI] = 1.
+	
+	# Time window based at tspan[1] for which linear change in r0 occurs
+	mydata[:Δt] = 21.
+
+	# r0 scale factor attained after linear change
+	mydata[:r0λ] = 1.;
 
 	return mydata
 end
@@ -186,7 +192,7 @@ dictionaries into an array and the other converts an array into a
 dictionary.
 """
 function csvdat(mydat::Dict{Symbol,Any},myaux::Dict{Symbol,Float64})
-	datary = Vector{Float64}(undef,181);
+	datary = Vector{Float64}(undef,183);
 
 	# Primary
 	datary[1] = mydat[:d_E];
@@ -220,6 +226,8 @@ function csvdat(mydat::Dict{Symbol,Any},myaux::Dict{Symbol,Float64})
 	datary[pos+4] = myaux[:vι0];
 	datary[pos+5] = myaux[:rptλE];
 	datary[pos+6] = myaux[:rptλI];
+	datary[pos+7] = myaux[:Δt];
+	datary[pos+8] = myaux[:r0λ];
 
 	return datary, pos
 end
@@ -259,6 +267,8 @@ function csvdat(datary::Vector{Float64},csv_vac::String="",csv_odh::String="")
 	myaux[:vι0] = datary[pos+4];
 	myaux[:rptλE] = datary[pos+5];
 	myaux[:rptλI] = datary[pos+6];
+	myaux[:Δt] = datary[pos+7];
+	myaux[:r0λ] = datary[pos+8];
 
 	return mydat,myaux
 end
@@ -581,6 +591,10 @@ function depmat(sheet::data,auxmat::Dict{Symbol,Float64})
 
 	# tspan length of simulation
 	mydata[:tspan] = [0.,sheet.tspan[2]-sheet.tspan[1]];
+
+	# Directly copy the linear scale parameters from auxmat
+	mydata[:Δt] = [auxmat[:Δt]];
+	mydata[:r0λ] = [auxmat[:r0λ]];
 
 	return mydata
 end

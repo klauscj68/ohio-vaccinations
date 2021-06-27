@@ -76,12 +76,16 @@ function gibbsdatamat()
 	rptλ = [1.,4.]; flagrptλ = true;
 	bayσ = [20.,45.]; flagbayσ = true;
 	vι0 = [0.,1.]; flagvι0 = true;
-	rptλE = [1.,10.]; flagrptλE = true;
-	rptλI = [1.,10.]; flagrptλI = true;
+	rptλE = [1.,10.]; flagrptλE = false;
+	rptλI = [1.,10.]; flagrptλI = false;
+	Δt = [1.,62.]; flagΔt = true;
+	r0λ = [1.,3.]; flagr0λ = true;
 	prmrg[:rptλ] = rptλ; prmrg[:bayσ] = bayσ; 
 	prmrg[:vι0] = vι0; prmrg[:rptλE] = rptλE; prmrg[:rptλI] = rptλI;
+	prmrg[:Δt] = Δt; prmrg[:r0λ] = r0λ;
 	prmvary[:rptλ] = flagrptλ; prmvary[:bayσ] = flagbayσ; 
 	prmvary[:vι0] = flagvι0; prmvary[:rptλE] = flagrptλE; prmvary[:rptλI] = flagrptλI; 
+	prmvary[:Δt] = flagΔt; prmvary[:r0λ] = flagr0λ;
 
 	#-----
 	# Aggregate dictionary keys
