@@ -35,7 +35,7 @@ nsmp: Number of mcmc samples desired
 """
 function gibbsdatamat()
 	# Number of model parameters
-	dim = 181;
+	dim = 183;
 
 	#-----
 	# Disease parameters
@@ -282,10 +282,14 @@ Routine uses myinterp from the odesolver.jl library
 function gibbslikelihood(sheet::data,mydep::Dict{Symbol,Vector{Float64}},myaux::Dict{Symbol,Float64},
 		SE::Matrix{Float64})
 
-	# Assume daily reported cases error is normal iid across each age cohort
-	val = 0
-	for i=1:length(SE)
-		val += -.5*SE[i]/myaux[:bayσ]^2 - log(myaux[:bayσ]);
+	# Assume daily reported case error increments are normal iid across each age cohort
+	E = sqrt.(SE);
+	E = abs.(E[1:end-1,:]-E[2:end,:]);
+	E = E.^2;
+
+	val = 0.;
+	for i=1:length(E)
+		val += -.5*E[i]/myaux[:bayσ]^2 - log(myaux[:bayσ]);
 	end
 
 	return val
