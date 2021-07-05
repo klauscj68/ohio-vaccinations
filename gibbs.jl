@@ -74,12 +74,12 @@ function gibbsdatamat()
 	#-----
 	# Auxilliary parameters
 	rptλ = [1.,4.]; flagrptλ = true;
-	bayσ = [20.,45.]; flagbayσ = true;
+	bayσ = [1.,75.]; flagbayσ = true;
 	vι0 = [0.,1.]; flagvι0 = true;
 	rptλE = [1.,10.]; flagrptλE = false;
 	rptλI = [1.,10.]; flagrptλI = false;
-	Δt = [1.,62.]; flagΔt = true;
-	r0λ = [1.,3.]; flagr0λ = true;
+	Δt = [1.,62.]; flagΔt = false;
+	r0λ = [1.,3.]; flagr0λ = false;
 	prmrg[:rptλ] = rptλ; prmrg[:bayσ] = bayσ; 
 	prmrg[:vι0] = vι0; prmrg[:rptλE] = rptλE; prmrg[:rptλI] = rptλI;
 	prmrg[:Δt] = Δt; prmrg[:r0λ] = r0λ;
@@ -311,7 +311,7 @@ function gibbscondprp(sheet::data,mydep::Dict{Symbol,Vector{Float64}},myaux::Dic
 	#        by the prior
 	mymax = maximum(SE);
 	
-	val = -log(mymax/myaux[:bayσ]^2+2.);
+	val = -log(mymax/35^2+2.);
 
 	return val
 end
@@ -496,7 +496,7 @@ function gibbsmcmc(nsmp::Int64; rng::MersenneTwister=MersenneTwister(), MHmix::F
 	ti = Int64(floor(sheet.tspan[1])); tf = Int64(ceil(sheet.tspan[2]));
 	measurements = Dict{String,Vector{Float64}}();
 	for i=1:9
-		measurements[cols[i]] = mymvavg(DF[!,cols[i]][ti:tf-1]);
+		measurements[cols[i]] = DF[!,cols[i]][ti:tf-1];
 	end	
 	#  Load vaccination data
 	frc_M = (isempty(sheet.csv_vac)) ? [0. 0.; 1. 0.] : vaxld(); # vaxld adjusts to ti=0-based index
