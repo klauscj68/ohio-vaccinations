@@ -154,7 +154,7 @@ function gibbsmodelerr(sheet::data,myaux::Dict{Symbol,Float64},mydep::Dict{Symbo
 	SE = Matrix{Float64}(undef,tf-ti,9);
 	keys = ["0-9","10-19","20-29","30-39","40-49","50-59","60-69","70-79","80+"];
 	for i=1:9
-		SE[:,i] = abs.(dailyI[:,i] - measurements[keys[i]]).^2 ;
+		SE[:,i] = measurements[keys[i]] - dailyI[:,i];
 	end
 
 	return SE
@@ -283,8 +283,10 @@ function gibbslikelihood(sheet::data,mydep::Dict{Symbol,Vector{Float64}},myaux::
 		SE::Matrix{Float64})
 
 	# Assume daily reported case error increments are normal iid across each age cohort
-	E = sqrt.(SE);
-	E = abs.(E[1:end-1,:]-E[2:end,:]);
+	#  ie ODH = Model + Noise(t)
+	#  => Noise(t) = ODH - Model (<- now returned by gibbsmodelerr)
+	#  => ΔNoise = ΔOdh - ΔModel
+	E = abs.(SE[1:end-1,:]-SE[2:end,:]);
 	E = E.^2;
 
 	val = 0.;
@@ -307,11 +309,12 @@ function gibbscondprp(sheet::data,mydep::Dict{Symbol,Vector{Float64}},myaux::Dic
 		      SE::Matrix{Float64})
 
 	# Use a proposal distribution like 1/((max(SE))/sigma^2+2.) (= 1/(max(z-score)^2+.2.))
-	#  Note: that because of how used in condsmp! that this is actually multiplied 
-	#        by the prior
-	mymax = maximum(SE);
+	ntpts = size(SE)[1];
+	mymax = maximum(SE.^2);
 	
-	val = -log(mymax/35^2+2.);
+	# If error increments are N(0,bayσ) iid, then like with a Wiener process, their sum will
+	#  be N(0,√n*bayσ)
+	val = -log(mymax/(ntpts*myaux[:bayσ]^2)+2.);
 
 	return val
 end
@@ -537,7 +540,7 @@ function gibbsmcmc(nsmp::Int64; rng::MersenneTwister=MersenneTwister(), MHmix::F
 	Posterior[:,1] = initprm;
 
 	Errors = Array{Float64,2}(undef,nsmp+1,1);
-	Errors[1,1] = sum(initSE);
+	Errors[1,1] = sum(initSE.^2);
 	
 	#  For writing out progress
 	prgbar = 0; δprgbar = .01; nMH = 0; nGibbs = 0;
@@ -676,7 +679,7 @@ function gibbsmcmc(nsmp::Int64; rng::MersenneTwister=MersenneTwister(), MHmix::F
 		end
 		
 		Posterior[:,i],pos = csvdat(initdatamat,initauxmat);
-		Errors[i,1] = sum(initSE)/length(initSE);
+		Errors[i,1] = sum(initSE.^2)/length(initSE);
 
 		# Print progress
 		myprg = i/(nsmp+1);
