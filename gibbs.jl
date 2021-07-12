@@ -79,7 +79,7 @@ function gibbsdatamat()
 	rptλE = [1.,10.]; flagrptλE = false;
 	rptλI = [1.,10.]; flagrptλI = false;
 	
-	Δpt = [350.,450.]; flagΔpt = false;
+	Δpt = [411.,486.]; flagΔpt = false;
 	Δr0 = [.5,2.]; flagΔr0 = false;
 	Δα = [0.,1.]; flagΔα = false;
 	Δω = [0.,1.]; flagΔω = false;
