@@ -35,7 +35,7 @@ nsmp: Number of mcmc samples desired
 """
 function gibbsdatamat()
 	# Number of model parameters
-	dim = 183;
+	dim = 186;
 
 	#-----
 	# Disease parameters
@@ -522,7 +522,7 @@ function gibbsmcmc(nsmp::Int64; rng::MersenneTwister=MersenneTwister(), MHmix::F
 	ti = Int64(floor(sheet.tspan[1])); tf = Int64(ceil(sheet.tspan[2]));
 	measurements = Dict{String,Vector{Float64}}();
 	for i=1:9
-		measurements[cols[i]] = DF[!,cols[i]][ti:tf-1];
+		measurements[cols[i]] = mymvavg(DF[!,cols[i]][ti:tf-1]);
 	end	
 	#  Load vaccination data
 	frc_M = (isempty(sheet.csv_vac)) ? [0. 0.; 1. 0.] : vaxld(); # vaxld adjusts to ti=0-based index
