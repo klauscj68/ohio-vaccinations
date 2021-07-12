@@ -173,13 +173,22 @@ function auxmat()
 	mydata[:rptλE] = 1.;
 
 	# Factor used to additionally scale ODH reported infection
-	mydata[:rptλI] = 1.
+	mydata[:rptλI] = 1.;
 	
-	# Time window based at tspan[1] for which linear change in r0 occurs
-	mydata[:Δt] = 21.
+	# Time point at which switch to change point parameters
+	mydata[:Δpt] = Inf;
 
-	# r0 scale factor attained after linear change
-	mydata[:r0λ] = 1.;
+	# New change point r0 value
+	mydata[:Δr0] = 2.
+	
+	# New change point α value
+	mydata[:Δα] = .1;
+
+	# New change point ω value
+	mydata[:Δω] = .5;
+
+	# New change point rptλ value
+	mydata[:Δrptλ] = 2.;
 
 	return mydata
 end
@@ -192,7 +201,7 @@ dictionaries into an array and the other converts an array into a
 dictionary.
 """
 function csvdat(mydat::Dict{Symbol,Any},myaux::Dict{Symbol,Float64})
-	datary = Vector{Float64}(undef,183);
+	datary = Vector{Float64}(undef,186);
 
 	# Primary
 	datary[1] = mydat[:d_E];
@@ -226,8 +235,11 @@ function csvdat(mydat::Dict{Symbol,Any},myaux::Dict{Symbol,Float64})
 	datary[pos+4] = myaux[:vι0];
 	datary[pos+5] = myaux[:rptλE];
 	datary[pos+6] = myaux[:rptλI];
-	datary[pos+7] = myaux[:Δt];
-	datary[pos+8] = myaux[:r0λ];
+	datary[pos+7] = myaux[:Δpt];
+	datary[pos+8] = myaux[:Δr0];
+	datary[pos+9] = myaux[:Δα];
+	datary[pos+10] = myaux[:Δω];
+	datary[pos+11] = myaux[:Δrptλ];
 
 	return datary, pos
 end
@@ -267,8 +279,11 @@ function csvdat(datary::Vector{Float64},csv_vac::String="",csv_odh::String="")
 	myaux[:vι0] = datary[pos+4];
 	myaux[:rptλE] = datary[pos+5];
 	myaux[:rptλI] = datary[pos+6];
-	myaux[:Δt] = datary[pos+7];
-	myaux[:r0λ] = datary[pos+8];
+	myaux[:Δpt] = datary[pos+7];
+	myaux[:Δr0] = datary[pos+8];
+	myaux[:Δα] = datary[pos+9];
+	myaux[:Δω] = datary[pos+10];
+	myaux[:Δrptλ] = datary[pos+11];
 
 	return mydat,myaux
 end
@@ -592,9 +607,12 @@ function depmat(sheet::data,auxmat::Dict{Symbol,Float64})
 	# tspan length of simulation
 	mydata[:tspan] = [0.,sheet.tspan[2]-sheet.tspan[1]];
 
-	# Directly copy the linear scale parameters from auxmat
-	mydata[:Δt] = [auxmat[:Δt]];
-	mydata[:r0λ] = [auxmat[:r0λ]];
+	# Directly copy the change point parameters from auxmat
+	mydata[:Δpt] = [auxmat[:Δpt]];
+	mydata[:Δr0] = [auxmat[:Δr0]];
+	mydata[:Δα] = [auxmat[:Δα]];
+	mydata[:Δω] = [auxmat[:Δω]];
+	mydata[:Δrptλ] = [auxmat[:Δrptλ]];
 
 	return mydata
 end

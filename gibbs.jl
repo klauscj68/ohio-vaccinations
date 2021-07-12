@@ -78,14 +78,24 @@ function gibbsdatamat()
 	vι0 = [0.,1.]; flagvι0 = true;
 	rptλE = [1.,10.]; flagrptλE = false;
 	rptλI = [1.,10.]; flagrptλI = false;
-	Δt = [1.,62.]; flagΔt = false;
-	r0λ = [1.,3.]; flagr0λ = false;
+	
+	Δpt = [350.,450.]; flagΔpt = false;
+	Δr0 = [.5,2.]; flagΔr0 = false;
+	Δα = [0.,1.]; flagΔα = false;
+	Δω = [0.,1.]; flagΔω = false;
+	Δrptλ = [1.,4.]; flagΔrptλ = false;
+	
 	prmrg[:rptλ] = rptλ; prmrg[:bayσ] = bayσ; 
 	prmrg[:vι0] = vι0; prmrg[:rptλE] = rptλE; prmrg[:rptλI] = rptλI;
-	prmrg[:Δt] = Δt; prmrg[:r0λ] = r0λ;
+	
+	prmrg[:Δpt] = Δpt;prmrg[:Δr0] = Δr0; prmrg[:Δα] = Δα; 
+	prmrg[:Δω] = Δω; prmrg[:Δrptλ] = Δrptλ;
+	
 	prmvary[:rptλ] = flagrptλ; prmvary[:bayσ] = flagbayσ; 
 	prmvary[:vι0] = flagvι0; prmvary[:rptλE] = flagrptλE; prmvary[:rptλI] = flagrptλI; 
-	prmvary[:Δt] = flagΔt; prmvary[:r0λ] = flagr0λ;
+	
+	prmvary[:Δpt] = flagΔpt;prmvary[:Δr0] = flagΔr0; prmvary[:Δα] = flagΔα;
+	prmvary[:Δω] = flagΔω; prmvary[:Δrptλ] = flagΔrptλ;
 
 	#-----
 	# Aggregate dictionary keys
@@ -145,10 +155,17 @@ function gibbsmodelerr(sheet::data,myaux::Dict{Symbol,Float64},mydep::Dict{Symbo
 			val2 = myinterp(tpts,Etot[j,:],Float64(i+1));
 			# Integrate over day so b-a = 1 by trapezoidal
 			dailyI[i-(ti-1),j] = 1/sheet.d_E*.5*(val1+val2);
+
+			# Normalize by reporting factor
+			if i <= mydep[:Δpt][1]
+				dailyI[i-(ti-1),j] *= (1/myaux[:rptλ]);
+			else
+				dailyI[i-(ti-1),j] *= (1/mydep[:Δrptλ][1]);
+			end
 		end
 
 	end
-	dailyI *= (1/myaux[:rptλ])*(1/myaux[:rptλE]);
+	dailyI *= (1/myaux[:rptλE]);
 
 	# Construct the error dictionary
 	SE = Matrix{Float64}(undef,tf-ti,9);
@@ -196,6 +213,7 @@ Evaluate log of the unnormalized Bayesian prior for given choice of model parame
 """
 function gibbsprior(sheet::data,myaux::Dict{Symbol,Float64},mydep::Dict{Symbol,Vector{Float64}},
 		    gibbssheet::gibbsdata)
+	val = 0.;
 	# Check if sheet values are inside constraint ranges
 	for key in gibbssheet.prmkeys
 		if gibbssheet.prmvary[key]
@@ -228,9 +246,14 @@ function gibbsprior(sheet::data,myaux::Dict{Symbol,Float64},mydep::Dict{Symbol,V
 	if (myaux[:rptλ]*myaux[:rptλE] > 10)|(myaux[:rptλ]*myaux[:rptλI] > 10)
 		return -Inf
 	end
+	
+	# Initial vaccinated infected should be on par with vaccinated susceptibility
+	if gibbssheet.prmvary[:vι0]
+		val += -.5*(myaux[:vι0] - sheet.α)^2/(.1)^2 - log(.1);
+	end
 
 	# Passed all checks
-	return 0.
+	return val
 	
 end
 
@@ -313,8 +336,8 @@ function gibbscondprp(sheet::data,mydep::Dict{Symbol,Vector{Float64}},myaux::Dic
 	mymax = maximum(SE.^2);
 	
 	# If error increments are N(0,bayσ) iid, then like with a Wiener process, their sum will
-	#  be N(0,√n*bayσ)
-	val = -log(mymax/(ntpts*myaux[:bayσ]^2)+2.);
+	#  be N(0,√n*bayσ). The average value of {1,...,ntpts} is (ntpts+1)/2
+	val = -log(mymax/((ntpts+1)/2*myaux[:bayσ]^2)+2.);
 
 	return val
 end

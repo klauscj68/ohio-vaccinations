@@ -131,13 +131,16 @@ function flowfield(sheet::data,mydep::Dict{Symbol,Vector{Float64}},
 	# Compute size of vaccinated population for possibile limit to vax
 	Nv = sum(Y);
 
-	# Compute linear change in scale of r0 if desired
-	r0λ = 1. + t/(mydep[:Δt][1])*((mydep[:r0λ][1])-1.);
+	# Take change point parameters if appropriate
+	flagΔpt = (t > (mydep[:Δpt][1] - sheet.tspan[1]));
+	r0λ = flagΔpt ? mydep[:Δr0][1]/sheet.r0 : 1.;
+	α = flagΔpt ? mydep[:Δα][1] : sheet.α;
+	ω = flagΔpt ? mydep[:Δω][1] : sheet.ω;
 
 	# Compute ODE systems
 	#  Unvaccinated
 	 DS = r0λ*(-S.*mydep[:β]).*(sheet.C*(
-			       (I+sheet.ω*Iv+Ix)./(sheet.N-D-Dv-Dx)
+			       (I+ω*Iv+Ix)./(sheet.N-D-Dv-Dx)
 			       )
 			    );
 	DE = -DS - (1/sheet.d_E)*E;
@@ -151,29 +154,29 @@ function flowfield(sheet::data,mydep::Dict{Symbol,Vector{Float64}},
 	DX = [DS DE DI DR DD];
 
 	#  Vaccinated
-	DS = sheet.α*
+	DS = α*
 	     r0λ*(-Sv.*mydep[:β]).*(sheet.C*(
-				 (I+sheet.ω*Iv+Ix)./(sheet.N-D-Dv-Dx)
+				 (I+ω*Iv+Ix)./(sheet.N-D-Dv-Dx)
 				)
 			     );
 	DE = -DS - (1/sheet.d_E)*Ev;
 	#   Now add in vaccination protocol
 	DS = DS + vaxtrans;	
 	DI = (1/sheet.d_E)*Ev - (1/sheet.d_I)*Iv;
-	DR = (1/sheet.d_I)*Iv.*(1 .- sheet.α*sheet.IFR);
-	DD = (1/sheet.d_I)*Iv.*(sheet.α*sheet.IFR);
+	DR = (1/sheet.d_I)*Iv.*(1 .- α*sheet.IFR);
+	DD = (1/sheet.d_I)*Iv.*(α*sheet.IFR);
 
 	DY = [DS DE DI DR DD];
 
 	#  Unwilling to vaccinate
 	DS = r0λ*(-Sx.*mydep[:β]).*(sheet.C*(
-				 (I+sheet.ω*Iv+Ix)./(sheet.N-D-Dv-Dx)
+				 (I+ω*Iv+Ix)./(sheet.N-D-Dv-Dx)
 				)
 			     );
 	DE = -DS - (1/sheet.d_E)*Ex;
 	DI = (1/sheet.d_E)*Ex - (1/sheet.d_I)*Ix;
-	DR = (1/sheet.d_I)*Ix.*(1 .- sheet.α*sheet.IFR);
-	DD = (1/sheet.d_I)*Ix.*(sheet.α*sheet.IFR);
+	DR = (1/sheet.d_I)*Ix.*(1 .- sheet.IFR);
+	DD = (1/sheet.d_I)*Ix.*(sheet.IFR);
 
 	DZ = [DS DE DI DR DD];
 
