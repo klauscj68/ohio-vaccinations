@@ -35,7 +35,7 @@ nsmp: Number of mcmc samples desired
 """
 function gibbsdatamat()
 	# Number of model parameters
-	dim = 186;
+	dim = 187;
 
 	#-----
 	# Disease parameters
@@ -84,18 +84,19 @@ function gibbsdatamat()
 	Δα = [0.,1.]; flagΔα = false;
 	Δω = [0.,1.]; flagΔω = false;
 	Δrptλ = [1.,4.]; flagΔrptλ = false;
+	Δbayσ = [1.,75.]; flagΔbayσ = false;
 	
 	prmrg[:rptλ] = rptλ; prmrg[:bayσ] = bayσ; 
 	prmrg[:vι0] = vι0; prmrg[:rptλE] = rptλE; prmrg[:rptλI] = rptλI;
 	
 	prmrg[:Δpt] = Δpt;prmrg[:Δr0] = Δr0; prmrg[:Δα] = Δα; 
-	prmrg[:Δω] = Δω; prmrg[:Δrptλ] = Δrptλ;
+	prmrg[:Δω] = Δω; prmrg[:Δrptλ] = Δrptλ; prmrg[:Δbayσ] = Δbayσ;
 	
 	prmvary[:rptλ] = flagrptλ; prmvary[:bayσ] = flagbayσ; 
 	prmvary[:vι0] = flagvι0; prmvary[:rptλE] = flagrptλE; prmvary[:rptλI] = flagrptλI; 
 	
 	prmvary[:Δpt] = flagΔpt;prmvary[:Δr0] = flagΔr0; prmvary[:Δα] = flagΔα;
-	prmvary[:Δω] = flagΔω; prmvary[:Δrptλ] = flagΔrptλ;
+	prmvary[:Δω] = flagΔω; prmvary[:Δrptλ] = flagΔrptλ; prmvary[:Δbayσ] = flagΔbayσ;
 
 	#-----
 	# Aggregate dictionary keys
@@ -109,6 +110,7 @@ function gibbsdatamat()
 
 	#-----
 	# Write data to gibbsdata
+	#
 	return gibbsdata(dim,prmvary,prmrg,prmkeys)	
 end
 
@@ -168,10 +170,11 @@ function gibbsmodelerr(sheet::data,myaux::Dict{Symbol,Float64},mydep::Dict{Symbo
 	dailyI *= (1/myaux[:rptλE]);
 
 	# Construct the error dictionary
-	SE = Matrix{Float64}(undef,tf-ti,9);
+	SE = Matrix{Float64}(undef,tf-ti,10);
+	SE[:,1] = ti:1.0:(tf-1);
 	keys = ["0-9","10-19","20-29","30-39","40-49","50-59","60-69","70-79","80+"];
 	for i=1:9
-		SE[:,i] = measurements[keys[i]] - dailyI[:,i];
+		SE[:,i+1] = measurements[keys[i]] - dailyI[:,i];
 	end
 
 	return SE
@@ -309,12 +312,21 @@ function gibbslikelihood(sheet::data,mydep::Dict{Symbol,Vector{Float64}},myaux::
 	#  ie ODH = Model + Noise(t)
 	#  => Noise(t) = ODH - Model (<- now returned by gibbsmodelerr)
 	#  => ΔNoise = ΔOdh - ΔModel
-	E = abs.(SE[1:end-1,:]-SE[2:end,:]);
-	E = E.^2;
+	SE1 = @view SE[1:end-1,2:end]; SE2 = @view SE[2:end,2:end];
+	E = (SE1-SE2).^2;
 
 	val = 0.;
+	gen = [1,1]; bayσ = (SE[gen[1],1] <= myaux[:Δpt]) ? myaux[:bayσ] : myaux[:Δbayσ];
 	for i=1:length(E)
-		val += -.5*E[i]/myaux[:bayσ]^2 - log(myaux[:bayσ]);
+		# cycle generator
+		if gen[2] == 9
+			gen[1] += 1
+			gen[2] = 1;
+			bayσ = (SE[gen[1],1] <= myaux[:Δpt]) ? myaux[:bayσ] : myaux[:Δbayσ];
+		else
+			gen[2] += 1;
+		end
+		val += -.5*E[gen[1],gen[2]]/bayσ^2 - log(bayσ);
 	end
 
 	return val
@@ -333,11 +345,29 @@ function gibbscondprp(sheet::data,mydep::Dict{Symbol,Vector{Float64}},myaux::Dic
 
 	# Use a proposal distribution like 1/((max(SE))/sigma^2+2.) (= 1/(max(z-score)^2+.2.))
 	ntpts = size(SE)[1];
-	mymax = maximum(SE.^2);
-	
+
+	mymax = -Inf;
+	gen = [1,1];
+	bayσ = (SE[gen[1],1] <= myaux[:Δpt]) ? myaux[:bayσ] : myaux[:Δbayσ];
+	for i=1:9ntpts
+		# Cycle generator
+		if gen[2] == 10
+			gen[1] += 1;
+			gen[2] = 2;
+			
+			# Check for Δpt standard deviations
+			bayσ = (SE[gen[1],1] <= myaux[:Δpt]) ? myaux[:bayσ] : myaux[:Δbayσ];
+		else
+			gen[2] += 1;
+		end
+
+		cand = (SE[gen[1],gen[2]]/bayσ)^2;
+		mymax = (mymax < cand) ? cand : mymax;
+	end
+		
 	# If error increments are N(0,bayσ) iid, then like with a Wiener process, their sum will
 	#  be N(0,√n*bayσ). The average value of {1,...,ntpts} is (ntpts+1)/2
-	val = -log(mymax/((ntpts+1)/2*myaux[:bayσ]^2)+2.);
+	val = -log(mymax/((ntpts+1)/2)+2.);
 
 	return val
 end
@@ -702,7 +732,8 @@ function gibbsmcmc(nsmp::Int64; rng::MersenneTwister=MersenneTwister(), MHmix::F
 		end
 		
 		Posterior[:,i],pos = csvdat(initdatamat,initauxmat);
-		Errors[i,1] = sum(initSE.^2)/length(initSE);
+		initE = @view initSE[:,2:end];
+		Errors[i,1] = sum(initE.^2)/length(initE);
 
 		# Print progress
 		myprg = i/(nsmp+1);

@@ -190,6 +190,9 @@ function auxmat()
 	# New change point rptλ value
 	mydata[:Δrptλ] = 2.;
 
+	# New change point bayσ value
+	mydata[:Δbayσ] = 108.58090715085467;
+
 	return mydata
 end
 
@@ -201,7 +204,7 @@ dictionaries into an array and the other converts an array into a
 dictionary.
 """
 function csvdat(mydat::Dict{Symbol,Any},myaux::Dict{Symbol,Float64})
-	datary = Vector{Float64}(undef,186);
+	datary = Vector{Float64}(undef,187);
 
 	# Primary
 	datary[1] = mydat[:d_E];
@@ -240,6 +243,7 @@ function csvdat(mydat::Dict{Symbol,Any},myaux::Dict{Symbol,Float64})
 	datary[pos+9] = myaux[:Δα];
 	datary[pos+10] = myaux[:Δω];
 	datary[pos+11] = myaux[:Δrptλ];
+	datary[pos+12] = myaux[:Δbayσ];
 
 	return datary, pos
 end
@@ -284,6 +288,7 @@ function csvdat(datary::Vector{Float64},csv_vac::String="",csv_odh::String="")
 	myaux[:Δα] = datary[pos+9];
 	myaux[:Δω] = datary[pos+10];
 	myaux[:Δrptλ] = datary[pos+11];
+	myaux[:Δbayσ] = datary[pos+12];
 
 	return mydat,myaux
 end
