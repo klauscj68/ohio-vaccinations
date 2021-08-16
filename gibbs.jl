@@ -50,7 +50,7 @@ function gibbsdatamat()
 	#-----
 	# Epidemic transmission
 	#  r0
-	r0 = [.5,2.]; flagr0 = true;
+	r0 = [.5,4.]; flagr0 = true;
 	prmrg[:r0] = r0; prmvary[:r0] = flagr0;
 
 	#-----
@@ -79,12 +79,12 @@ function gibbsdatamat()
 	rptλE = [1.,10.]; flagrptλE = false;
 	rptλI = [1.,10.]; flagrptλI = false;
 	
-	Δpt = [411.,486.]; flagΔpt = false;
-	Δr0 = [.5,2.]; flagΔr0 = false;
-	Δα = [0.,1.]; flagΔα = false;
-	Δω = [0.,1.]; flagΔω = false;
-	Δrptλ = [1.,4.]; flagΔrptλ = false;
-	Δbayσ = [1.,75.]; flagΔbayσ = false;
+	Δpt = [425.,586.]; flagΔpt = true;
+	Δr0 = [.5,8.]; flagΔr0 = true;
+	Δα = [0.,1.]; flagΔα = true;
+	Δω = [0.,1.]; flagΔω = true;
+	Δrptλ = [1.,4.]; flagΔrptλ = true;
+	Δbayσ = [1.,75.]; flagΔbayσ = true;
 	
 	prmrg[:rptλ] = rptλ; prmrg[:bayσ] = bayσ; 
 	prmrg[:vι0] = vι0; prmrg[:rptλE] = rptλE; prmrg[:rptλI] = rptλI;
@@ -316,7 +316,7 @@ function gibbslikelihood(sheet::data,mydep::Dict{Symbol,Vector{Float64}},myaux::
 	E = (SE1-SE2).^2;
 
 	val = 0.;
-	gen = [1,1]; bayσ = (SE[gen[1],1] <= myaux[:Δpt]) ? myaux[:bayσ] : myaux[:Δbayσ];
+	gen = [1,0]; bayσ = (SE[gen[1],1] <= myaux[:Δpt]) ? myaux[:bayσ] : myaux[:Δbayσ];
 	for i=1:length(E)
 		# cycle generator
 		if gen[2] == 9

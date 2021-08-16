@@ -58,15 +58,15 @@ function datamat()
 	mydata[:csv_vac] = "All_by_Sept_7.csv";
 
 	#   If not csv specify unnormalized age distr from dashboard
-	mydata[:distr_vac] = [343799.0*.5,  # 0-9
-			      343799.0*.5,   # 10-19
-			      598957.,    # 20-29
-			      673683.,   # 30-39
-			      721343.,   # 40-49
-			      930382.,   # 50-59
-			      564371.0+527817.0,   # 60-69
-			      437683.0+287414.0,   # 70-79
-			      390603.0];    # 80+
+	mydata[:distr_vac] = [448430.0*.5,  # 0-9
+			      448430.0*.5,   # 10-19
+			      670676.0,    # 20-29
+			      742184.0,   # 30-39
+			      783253.0,   # 40-49
+			      992897.0,   # 50-59
+			      590849.0+546319.0,   # 60-69
+			      450960.0+295134.0,   # 70-79
+			      398997.0];    # 80+
 
 	#   Constant vaccination rate if not from csv
 	mydata[:vrate] = 24063.47; # 1997268 vax started Dec 15th - 
@@ -78,69 +78,69 @@ function datamat()
 	
 	# Initial conditions
 	#  CSV to read initial conditions from, leave empty if not a csv
-	mydata[:csv_odh] = "ODH_Data/ODH_0616.csv";
+	mydata[:csv_odh] = "ODH_Data/ODH_0816.csv";
 
 	#  Aggregate unvaccinated population
-	mydata[:I0] = [ 2432.0186429545797
-                              2513.98135704542
-                                6788.0
-                          6354.0
-                             6081.0
-                                6301.0
-                             5080.0
-                                  3090.0
-                                  2473.0];
+	mydata[:I0] = [  686.9247966452783
+		         710.0752033547217
+			  1416.0
+			   1253.0
+			    1122.0
+			     1111.0
+			       850.0
+			         358.0
+				   148.0];
 	
 	#  Aggregate initial exposed apartment before d_E normalization
-	mydata[:E0] = [  510.8910978628806
-                          528.1089021371192
-                         1513.0
-                         1378.0
-                         1355.0
-                         1332.0
-                         1129.0
-                         682.0
-                         581.0];
+	mydata[:E0] = [ 176.52541302480668
+		        182.47458697519332
+			 361.0
+			  312.0
+			   264.0
+			    257.0
+			     177.0
+			       86.0
+			         45.0];
 
 	#  Aggregate deceased
-	mydata[:D0] = [1.9668569696357299
-                         2.03314303036427
-                         10.0
-                         62.0
-                          141.0
-                          519.0
-                           1331.0
-                             2596.0
-                             5174.0];
+	mydata[:D0] = [    2.950285454453595
+		           3.049714545546405
+			      22.0
+			         94.0
+				   251.0
+				     916.0
+				      2641.0
+				       4968.0
+				        9641.0];
 
 	#  Aggregate recovered
-	mydata[:R0] = [34146.1121356035
-                          35296.88786439649
-                    107945.0
-                       86382.0
-                             82644.0
-                            87970.0
-                            67517.0
-                           38705.0
-                          27359.0];
+	mydata[:R0] = [  61538.03743747789
+		         63611.9625625221
+			  176291.0
+			   146575.0
+			    140197.0
+			     146698.0
+			      112804.0
+			        62937.0
+				  41424.0];
 
 	#  Aggregate vaccinated at time 0
 	#   Although the key says Sv0, the code treats it as the aggregate
 	#   of all vaccinated and then splits these across categories in 
 	#   depmat
-	mydata[:Sv0] = [27.498636243775625
-                    27.498636243775625
-                         95.81470957543866
-                           107.76857268703803
-                         115.39270773907917
-                          148.8325224084797
-                           174.71650890093812
-                          115.99323235060588
-                           62.4844738508692];
+	mydata[:Sv0] = [  68427.8751968639
+			  68427.8751968639
+			   204682.70912085226
+			    226506.1397547409
+			     239039.93279472488
+			      303020.9040400534
+			       347050.77707498305
+			        227699.42741176533
+				 121769.3594091524];
 
 	# ODE solver params
 	#  Time span for simulation. Day is relative Jan 1, 2020
-	mydata[:tspan] = [349., 525.]; # Run1: 515 Run2: 470
+	mydata[:tspan] = [425., 586.]; 
 
 	#  Runga kutta time step
 	mydata[:δt] = .25;
