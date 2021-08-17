@@ -50,7 +50,7 @@ function gibbsdatamat()
 	#-----
 	# Epidemic transmission
 	#  r0
-	r0 = [.5,4.]; flagr0 = true;
+	r0 = [.5,3.]; flagr0 = true;
 	prmrg[:r0] = r0; prmvary[:r0] = flagr0;
 
 	#-----
@@ -79,7 +79,7 @@ function gibbsdatamat()
 	rptλE = [1.,10.]; flagrptλE = false;
 	rptλI = [1.,10.]; flagrptλI = false;
 	
-	Δpt = [425.,586.]; flagΔpt = true;
+	Δpt = [500.,570.]; flagΔpt = true;
 	Δr0 = [.5,8.]; flagΔr0 = true;
 	Δα = [0.,1.]; flagΔα = true;
 	Δω = [0.,1.]; flagΔω = true;
@@ -826,12 +826,12 @@ end
 Compute trajectories for all the parameters output by gibbsmcmc
 """
 function gibbstraj(idbeg::Int64,idend::Int64;
-		   dwnsmp::Int64=50,flag_write::Bool=true,tspan=Vector{Float64}([NaN,NaN]))
+		   dwnsmp::Int64=50,flag_write::Bool=true,tspan=Vector{Float64}([-Inf,Inf]))
 	
 	sheet = data();
 	frc_M = (isempty(sheet.csv_vac)) ? [0. 0.; 1. 0.] : vaxld();
 	# Load tspan from data if it was not specified
-	if tspan == [NaN,NaN]	
+	if tspan == [-Inf,Inf]	
 		tspan = sheet.tspan;
 	end
 
