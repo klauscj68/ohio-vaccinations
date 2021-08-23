@@ -56,7 +56,7 @@ function gibbsdatamat()
 	#-----
 	# Vaccination
 	#  Susceptibility
-	α = [0.,1.]; flagα = true;
+	α = [0.,.3]; flagα = true;
 	#  Contagiousness
 	ω = [0.,1.]; flagω = true;
 	#  Fraction of pop not willing to be vax'd
@@ -74,17 +74,17 @@ function gibbsdatamat()
 	#-----
 	# Auxilliary parameters
 	rptλ = [1.,4.]; flagrptλ = true;
-	bayσ = [1.,75.]; flagbayσ = true;
-	vι0 = [0.,1.]; flagvι0 = true;
+	bayσ = [1.,15.]; flagbayσ = true;
+	vι0 = [0.,.3]; flagvι0 = true;
 	rptλE = [1.,10.]; flagrptλE = false;
 	rptλI = [1.,10.]; flagrptλI = false;
 	
 	Δpt = [500.,570.]; flagΔpt = true;
 	Δr0 = [.5,8.]; flagΔr0 = true;
-	Δα = [0.,1.]; flagΔα = true;
+	Δα = [0.,.35]; flagΔα = true;
 	Δω = [0.,1.]; flagΔω = true;
 	Δrptλ = [1.,4.]; flagΔrptλ = true;
-	Δbayσ = [1.,75.]; flagΔbayσ = true;
+	Δbayσ = [1.,15.]; flagΔbayσ = true;
 	
 	prmrg[:rptλ] = rptλ; prmrg[:bayσ] = bayσ; 
 	prmrg[:vι0] = vι0; prmrg[:rptλE] = rptλE; prmrg[:rptλI] = rptλI;
@@ -249,10 +249,20 @@ function gibbsprior(sheet::data,myaux::Dict{Symbol,Float64},mydep::Dict{Symbol,V
 	if (myaux[:rptλ]*myaux[:rptλE] > 10)|(myaux[:rptλ]*myaux[:rptλI] > 10)
 		return -Inf
 	end
+
+	# Δr0 should be greater than r0
+	if gibbssheet.prmvary[:Δr0]&&(myaux[:Δr0] < sheet.r0)
+		return -Inf
+	end
 	
 	# Initial vaccinated infected should be on par with vaccinated susceptibility
 	if gibbssheet.prmvary[:vι0]
-		val += -.5*(myaux[:vι0] - sheet.α)^2/(.1)^2 - log(.1);
+		val += -.5*(myaux[:vι0] - sheet.α)^2/(.0125)^2 - log(.0125);
+	end
+
+	# Vaccine efficacy before and after Δpt should be on par
+	if gibbssheet.prmvary[:Δα]
+		val += -.5*(myaux[:Δα] - sheet.α)^2/(.0125)^2 - log(.0125);
 	end
 
 	# Passed all checks
