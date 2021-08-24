@@ -836,7 +836,7 @@ end
 Compute trajectories for all the parameters output by gibbsmcmc
 """
 function gibbstraj(idbeg::Int64,idend::Int64;
-		   dwnsmp::Int64=50,flag_write::Bool=true,tspan=Vector{Float64}([-Inf,Inf]))
+		   flag_write::Bool=true,tspan=Vector{Float64}([-Inf,Inf]))
 	
 	sheet = data();
 	frc_M = (isempty(sheet.csv_vac)) ? [0. 0.; 1. 0.] : vaxld();
@@ -860,7 +860,8 @@ function gibbstraj(idbeg::Int64,idend::Int64;
 	# Run the trajectories
 	nsmp = size(M_mcmc,2);
 	#  Define the axis
-	taxis = [tval for tval in LinRange(tspan[1],tspan[2],dwnsmp+1)];
+	taxis = [tval for tval in tspan[1]:1:tspan[2]];
+	dwnsmp = length(taxis)-1;
 	#  Evaluate the models
 	M_trajs = Matrix{Float64}(undef,9*dwnsmp,nsmp+1);
 	M_trajs[:,1] = repeat(taxis[1:end-1],outer=(9,));
