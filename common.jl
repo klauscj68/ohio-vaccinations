@@ -55,7 +55,7 @@ function datamat()
 
 	#  Vaccination strategy
 	#   Name of file if from csv. Empty denotes not.
-	mydata[:csv_vac] = "All_by_Sept_7.csv";
+	mydata[:csv_vac] = "VaxCdcAug24_1D.csv";
 
 	#   If not csv specify unnormalized age distr from dashboard
 	mydata[:distr_vac] = [448430.0*.5,  # 0-9
@@ -535,7 +535,7 @@ function vaxld(sheet::data)
 
 	# Revert the dates to Jan 1, 2020 0-index and then to ti 0-index
 	day0 = Date("2020-01-01");
-	dates = [Date(x,"mm/dd/yy") + Year(2000) for x in df[!,:date]];
+	dates = df[!,:Date];	
 	ram = dates .- day0;
 	taxis = [Float64(getfield(t,:value)) for t in ram];
 	taxis = taxis .- sheet.tspan[1];
@@ -625,4 +625,140 @@ function depmat(mydata::Dict{Symbol,Any},auxmat::Dict{Symbol,Float64})
 	sheet = data(mydata);
 
 	return depmat(sheet,auxmat)
+end
+
+#%% Process cdc vaccine into time series age distribution
+# parsevax
+"""
+Turn the cdc spreadsheet into age stratified data for vaccine delivery. 
+Routine extrapolates vaccination rates into the future by taking the 
+average rate over last two weeks and extrapolating
+
+Data available at
+https://data.cdc.gov/Vaccinations/COVID-19-Vaccinations-in-the-United-States-County/8xkx-amqh
+"""
+function parsevax(fname::String;
+	          nfutday::Int64=60)
+	df = CSV.read(fname,DataFrame);
+
+	# Convert dates from String to Date type
+	dat = DataFrame(Dict{Symbol,Vector{Date}}(
+			:Date=>[Date(d,"m/d/y") for d in df[!,:Date]]
+			                         )
+		       );
+
+	df = [dat df[:,2:end]];
+
+	# Filter to OH
+	flag = [df[i,:Recip_State] == "OH" for i in 1:length(df[!,:Date])];
+	df = df[flag,:];
+
+	# Filter out counties and reduce to relevant columns
+	dayi = minimum(df[!,:Date]);
+	dayf = maximum(df[!,:Date]);
+	ndays = getfield(dayf-dayi,:value)+1;
+	mydates = [dayi-Day(1)+Day(k) for k in 1:ndays];
+	dfdate = DataFrame(Dict{String,Vector{Date}}("Date"=>mydates));
+
+	keys = [:Series_Complete_12Plus,:Series_Complete_18Plus,:Series_Complete_65Plus,
+		:Administered_Dose1_Recip_12Plus,:Administered_Dose1_Recip_18Plus,:Administered_Dose1_Recip_65Plus];
+
+	# Pass from 1-CDF to PDF
+	df[:,keys[1]] = df[:,keys[1]]-df[:,keys[2]]; df[:,keys[2]] = df[:,keys[2]]-df[:,keys[3]];
+	df[:,keys[4]] = df[:,keys[4]]-df[:,keys[5]]; df[:,keys[5]] = df[:,keys[5]]-df[:,keys[6]];
+
+	now = dayi;
+	dfram = DataFrame(Dict{String,Vector{Int64}}(
+			      "2D12-18"=>Int64[],"2D18-65"=>Int64[],"2D65+"=>Int64[],
+			      "1D12-18"=>Int64[],"1D18-65"=>Int64[],"1D65+"=>Int64[]
+					    )
+			  );
+	while now <= dayf
+		# Loop over data frame rows and add in counts for given day
+		ram = zeros(1,6);
+		nrows = size(df)[1];
+		for i=nrows:-1:1
+			if df[i,:Date] == now
+				ram += reshape([val = (!ismissing(df[i,key]) ? df[i,key] : 0)
+						       for key in keys],(1,6));
+				delete!(df,i);
+			end
+		end
+
+		# Append to df out
+		push!(dfram,ram);
+
+		# cycle to next date
+		now += Day(1);
+	end
+
+	# Split up CDC like Ohio Population counts
+	mydata = datamat();
+	df2D = DataFrame(Dict{String,Vector{Int64}}(
+	                                   "0-9"=>Int64[],"10-19"=>Int64[],"20-29"=>Int64[],
+					   "30-39"=>Int64[],"40-49"=>Int64[],"50-59"=>Int64[],
+					   "60-69"=>Int64[],"70-79"=>Int64[],"80+"=>Int64[]
+					    )
+			 );
+	df1D = deepcopy(df2D);
+
+	wt2065 = deepcopy(mydata[:N][3:7]); wt2065[end] *= .5;
+	wt2065 *= 1/sum(wt2065);
+	wt65p = deepcopy(mydata[:N][7:9]); wt65p[1] *= .5;
+	wt65p *= 1/sum(wt65p);
+	for i=1:size(dfram)[1]
+		ram2D = zeros(Int64,1,9);
+		ram1D = zeros(Int64,1,9);
+
+		# 10-19
+		ram2D[2] = dfram[i,"2D12-18"];
+		ram1D[2] = dfram[i,"1D12-18"];
+
+		# 20-65
+		ram2D[3:7] = Int64.(floor.(dfram[i,"2D18-65"]*wt2065));
+		ram1D[3:7] = Int64.(floor.(dfram[i,"1D18-65"]*wt2065));
+
+		# 65+
+		ram2D[7:9] += Int64.(floor.(dfram[i,"2D65+"]*wt65p));
+		ram1D[7:9] += Int64.(floor.(dfram[i,"1D65+"]*wt65p));
+
+		# append
+		push!(df2D,ram2D);
+		push!(df1D,ram1D);
+	end
+	
+	# Cumulative case counts
+	df2D = [dfdate df2D];
+	df1D = [dfdate df1D];
+
+	# Daily case counts
+	for i=size(dfdate)[1]:-1:2
+		df2D[i:i,2:end] .= df2D[i:i,2:end] .- df2D[i-1:i-1,2:end];
+		df1D[i:i,2:end] .= df1D[i:i,2:end] .- df1D[i-1:i-1,2:end];
+
+		# If missing values in CDC caused spurious negative, reset 
+		# to 0
+		for j=2:10
+			df2D[i,j] = (df2D[i,j]>=0) ? df2D[i,j] : 0;
+			df1D[i,j] = (df1D[i,j]>=0) ? df1D[i,j] : 0;
+		end
+	end
+
+	# Transfer to vaccinated compartment 14 days after administration
+	df1D[!,"Date"] = df1D[!,"Date"] .+ Day(14);
+	df2D[!,"Date"] = df2D[!,"Date"] .+ Day(14);
+
+	# Extrapolate into the future using constant rate over the
+	# last two weeks
+	vrate1D = Int64.(floor.(sum(convert(Matrix,df1D[end-13:end,2:end]),dims=1)/14));
+	vrate2D = Int64.(floor.(sum(convert(Matrix,df2D[end-13:end,2:end]),dims=1)/14));
+
+	for i=1:nfutday
+		push!(df1D,[dayf+Day(i) vrate1D]);
+		push!(df2D,[dayf+Day(i) vrate2D]);
+	end
+
+	# Write CSV's
+	CSV.write(fname[1:end-4]*"_2D.csv",df2D);
+	CSV.write(fname[1:end-4]*"_1D.csv",df1D);
 end
