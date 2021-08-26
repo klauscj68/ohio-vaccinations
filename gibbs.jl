@@ -81,7 +81,7 @@ function gibbsdatamat()
 	
 	Δpt = [500.,570.]; flagΔpt = true;
 	Δr0 = [.5,8.]; flagΔr0 = true;
-	Δα = [0.,.35]; flagΔα = true;
+	Δα = [0.,.6]; flagΔα = true;
 	Δω = [0.,1.]; flagΔω = true;
 	Δrptλ = [1.,4.]; flagΔrptλ = true;
 	Δbayσ = [1.,15.]; flagΔbayσ = true;
@@ -254,15 +254,15 @@ function gibbsprior(sheet::data,myaux::Dict{Symbol,Float64},mydep::Dict{Symbol,V
 	if gibbssheet.prmvary[:Δr0]&&(myaux[:Δr0] < sheet.r0)
 		return -Inf
 	end
+
+	# Δω should be greater than ω
+	if gibbssheet.prmvary[:Δω]&&(myaux[:Δω] < sheet.ω)
+		return -Inf
+	end
 	
 	# Initial vaccinated infected should be on par with vaccinated susceptibility
 	if gibbssheet.prmvary[:vι0]
 		val += -.5*(myaux[:vι0] - sheet.α)^2/(.0125)^2 - log(.0125);
-	end
-
-	# Vaccine efficacy before and after Δpt should be on par
-	if gibbssheet.prmvary[:Δα]
-		val += -.5*(myaux[:Δα] - sheet.α)^2/(.0125)^2 - log(.0125);
 	end
 
 	# Passed all checks

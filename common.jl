@@ -11,10 +11,10 @@ function datamat()
 
 	# Disease parameters
 	#  Incubation period
-	mydata[:d_E] = 3.; # days
+	mydata[:d_E] = 4.; # days
 
 	#  Infectious period
-	mydata[:d_I] = 5.; # days
+	mydata[:d_I] = 7.; # days
 
 	# Epidemic transmission
 	#  Relative susceptibility before r0 rescaling
@@ -81,15 +81,15 @@ function datamat()
 	mydata[:csv_odh] = "ODH_Data/ODH_0823.csv";
 
 	#  Aggregate unvaccinated population
-	mydata[:I0] = [  686.9247966452783
-		         710.0752033547217
-			  1416.0
-			   1253.0
-			    1122.0
-			     1111.0
-			       850.0
-			         358.0
-				   148.0];
+	mydata[:I0] = [ 1026.6993381498505
+		        1061.3006618501495
+			 2097.0
+			  1852.0
+			   1693.0
+			    1624.0
+			     1245.0
+			       549.0
+			         242.0];
 	
 	#  Aggregate initial exposed apartment before d_E normalization
 	mydata[:E0] = [ 176.52541302480668
@@ -114,29 +114,29 @@ function datamat()
 				        9641.0];
 
 	#  Aggregate recovered
-	mydata[:R0] = [  61538.03743747789
-		         63611.9625625221
-			  176291.0
-			   146575.0
-			    140197.0
-			     146698.0
-			      112804.0
-			        62937.0
-				  41424.0];
+	mydata[:R0] = [  61200.22975294295
+		         63262.77024705704
+			  175613.0
+			   145975.0
+			    139636.0
+			     146189.0
+			      112406.0
+			        62741.0
+				  41329.0];
 
 	#  Aggregate vaccinated at time 0
 	#   Although the key says Sv0, the code treats it as the aggregate
 	#   of all vaccinated and then splits these across categories in 
 	#   depmat
-	mydata[:Sv0] = [  68427.8751968639
-			  68427.8751968639
-			   204682.70912085226
-			    226506.1397547409
-			     239039.93279472488
-			      303020.9040400534
-			       347050.77707498305
-			        227699.42741176533
-				 121769.3594091524];
+	mydata[:Sv0] = [ 0. # Data from summing CDC 1D up to March 1
+			 549.
+			 77766.
+			 71493.
+			 73218.
+			 80408.
+			 90922.
+			 62552.
+			 38538.];
 
 	# ODE solver params
 	#  Time span for simulation. Day is relative Jan 1, 2020
@@ -434,7 +434,7 @@ function odhld(sheet::data)
 		end
 	end
 
-	# Aggregate the initial infection (sum over last 5 days)
+	# Aggregate the initial infection (sum over last 7 days)
 	#               initial exposed (unnormalized by d_E so can use
 	#                                MCMC properly on d_E. d_E 
 	#                                normalization done in depmat)
@@ -445,8 +445,8 @@ function odhld(sheet::data)
 	Cum0 = Vector{Float64}(undef,9);
 	for k=1:9
 		E0[k] = dfodh[pos,cols[k]];
-		I0[k] = sum(dfodh[pos-4:pos,cols[k]]);
-		Cum0[k] = sum(dfodh[1:pos-5,cols[k]]);
+		I0[k] = sum(dfodh[pos-6:pos,cols[k]]);
+		Cum0[k] = sum(dfodh[1:pos-7,cols[k]]);
 	end
 
 	# Aggregate the total deceased
