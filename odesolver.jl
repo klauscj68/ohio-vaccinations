@@ -131,6 +131,13 @@ function flowfield(sheet::data,mydep::Dict{Symbol,Vector{Float64}},
 	# Compute size of vaccinated population for possibile limit to vax
 	Nv = sum(Y);
 
+	# Compute mixing rates between vaccinated and unvaccinated groups
+	#  Formula is an²+anᵥ²+bnnᵥ = (n+nᵥ)²
+	#  	      b/a=ɾ
+	Nu = sum(X);
+	amix = (Nu+Nv)^2/(Nu^2+Nv^2+sheet.ɾ*Nu*Nv);
+	bmix = sheet.ɾ*amix;
+	
 	# Take change point parameters if appropriate
 	flagΔpt = (t > (mydep[:Δpt][1] - sheet.tspan[1]));
 	r0λ = flagΔpt ? mydep[:Δr0][1]/sheet.r0 : 1.;
@@ -140,7 +147,7 @@ function flowfield(sheet::data,mydep::Dict{Symbol,Vector{Float64}},
 	# Compute ODE systems
 	#  Unvaccinated
 	 DS = r0λ*(-S.*mydep[:β]).*(sheet.C*(
-			       (I+ω*Iv+Ix)./(sheet.N-D-Dv-Dx)
+			       (amix*I+bmix*ω*Iv+Ix)./(sheet.N-D-Dv-Dx)
 			       )
 			    );
 	DE = -DS - (1/sheet.d_E)*E;
@@ -156,7 +163,7 @@ function flowfield(sheet::data,mydep::Dict{Symbol,Vector{Float64}},
 	#  Vaccinated
 	DS = α*
 	     r0λ*(-Sv.*mydep[:β]).*(sheet.C*(
-				 (I+ω*Iv+Ix)./(sheet.N-D-Dv-Dx)
+				 (bmix*I+amix*ω*Iv+Ix)./(sheet.N-D-Dv-Dx)
 				)
 			     );
 	DE = -DS - (1/sheet.d_E)*Ev;

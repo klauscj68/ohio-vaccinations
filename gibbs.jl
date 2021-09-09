@@ -35,7 +35,7 @@ nsmp: Number of mcmc samples desired
 """
 function gibbsdatamat()
 	# Number of model parameters
-	dim = 187;
+	dim = 188;
 
 	#-----
 	# Disease parameters

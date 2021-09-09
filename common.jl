@@ -1,6 +1,6 @@
 # Routines for defining the model parameters needed to run the age
 # stratified vaccination model
-using CSV, DataFrames, Dates, LinearAlgebra
+using CSV, DataFrames, Dates, LinearAlgebra, Plots
 
 #%% datamat
 """
@@ -8,7 +8,6 @@ Declare a base set of parameter values for the model
 """
 function datamat()
 	mydata = Dict{Symbol,Any}()
-
 	# Disease parameters
 	#  Incubation period
 	mydata[:d_E] = 4.; # days
@@ -55,7 +54,7 @@ function datamat()
 
 	#  Vaccination strategy
 	#   Name of file if from csv. Empty denotes not.
-	mydata[:csv_vac] = "VaxCdcAug24_1D.csv";
+	mydata[:csv_vac] = "VaxCdcSep08_1D.csv";
 
 	#   If not csv specify unnormalized age distr from dashboard
 	mydata[:distr_vac] = [448430.0*.5,  # 0-9
@@ -78,7 +77,7 @@ function datamat()
 	
 	# Initial conditions
 	#  CSV to read initial conditions from, leave empty if not a csv
-	mydata[:csv_odh] = "ODH_Data/ODH_0823.csv";
+	mydata[:csv_odh] = "ODH_Data/ODH_0908.csv";
 
 	#  Aggregate unvaccinated population
 	mydata[:I0] = [ 1026.6993381498505
@@ -105,45 +104,48 @@ function datamat()
 	#  Aggregate deceased
 	mydata[:D0] = [    2.950285454453595
 		           3.049714545546405
-			      22.0
+			      21.0
 			         94.0
-				   251.0
-				     916.0
-				      2641.0
-				       4968.0
-				        9641.0];
+				   250.0
+				     911.0
+				      2627.0
+				       4961.0
+				        9628.0];
 
 	#  Aggregate recovered
-	mydata[:R0] = [  61200.22975294295
+	mydata[:R0] = [61200.22975294295
 		         63262.77024705704
-			  175613.0
+			  175614.0
 			   145975.0
-			    139636.0
-			     146189.0
-			      112406.0
-			        62741.0
-				  41329.0];
+			    139637.0
+			     146195.0
+			      112421.0
+			        62756.0
+				  41347.0];
 
 	#  Aggregate vaccinated at time 0
 	#   Although the key says Sv0, the code treats it as the aggregate
 	#   of all vaccinated and then splits these across categories in 
 	#   depmat
-	mydata[:Sv0] = [ 0. # Data from summing CDC 1D up to March 1
-			 549.
-			 77766.
-			 71493.
-			 73218.
-			 80408.
-			 90922.
-			 62552.
-			 38538.];
+	mydata[:Sv0] = [  0.
+			   1278.
+			    132980.
+			     122250.
+			      125196.
+			       137494.
+			        325090.
+				 296504.
+				  182665. ];
 
 	# ODE solver params
 	#  Time span for simulation. Day is relative Jan 1, 2020
-	mydata[:tspan] = [425., 593.]; 
+	mydata[:tspan] = [425., 616.]; 
 
 	#  Runga kutta time step
 	mydata[:δt] = .25;
+
+	# Vax-Unvax interaction weight
+	mydata[:ɾ] = 1.;
 
 	return mydata
 
@@ -204,7 +206,7 @@ dictionaries into an array and the other converts an array into a
 dictionary.
 """
 function csvdat(mydat::Dict{Symbol,Any},myaux::Dict{Symbol,Float64})
-	datary = Vector{Float64}(undef,187);
+	datary = Vector{Float64}(undef,188);
 
 	# Primary
 	datary[1] = mydat[:d_E];
@@ -230,7 +232,7 @@ function csvdat(mydat::Dict{Symbol,Any},myaux::Dict{Symbol,Float64})
 	datary[173:174] = mydat[:tspan];
 	datary[175] = mydat[:δt];
 
-	# Auxiliary
+	# Auxiliary and ɾ
 	pos = 175; # Starting index for auxiliary params
 	datary[pos+1] = myaux[:rptλ];
 	datary[pos+2] = myaux[:bayσ];
@@ -244,6 +246,8 @@ function csvdat(mydat::Dict{Symbol,Any},myaux::Dict{Symbol,Float64})
 	datary[pos+10] = myaux[:Δω];
 	datary[pos+11] = myaux[:Δrptλ];
 	datary[pos+12] = myaux[:Δbayσ];
+	
+	datary[pos+13] = mydat[:ɾ];
 
 	return datary, pos
 end
@@ -289,6 +293,8 @@ function csvdat(datary::Vector{Float64},csv_vac::String="",csv_odh::String="")
 	myaux[:Δω] = datary[pos+10];
 	myaux[:Δrptλ] = datary[pos+11];
 	myaux[:Δbayσ] = datary[pos+12];
+
+	mydat[:ɾ] = datary[pos+13];
 
 	return mydat,myaux
 end
@@ -336,6 +342,9 @@ struct data
 	tspan::Vector{Float64}
 	δt::Float64
 
+	# Interaction between vax and unvax weight
+	ɾ::Float64
+
 	function data(datamat::Vector{Union{Float64,String}})
 		d_E,d_I = datamat[1:2];
 		β = datamat[3:11]; r0 = datamat[12]; 
@@ -353,6 +362,7 @@ struct data
 			D0 = ram[:,4]; 
 			Sv0 = ram[:,5];
 		tspan = datamat[173:174]; δt = datamat[175];
+		ɾ = datamat[188];
 
 		return new(d_E,d_I,
 			   β,r0,IFR,
@@ -361,7 +371,8 @@ struct data
 			   csv_vac,distr_vac,vrate,
 			   C,
 			   csv_odh,I0,E0,R0,D0,Sv0,
-			   tspan,δt)
+			   tspan,δt,
+			   ɾ)
 	end
 
 	function data(dict::Dict{Symbol,Any})
@@ -373,7 +384,8 @@ struct data
 			   dict[:csv_vac],dict[:distr_vac],dict[:vrate],
 			   dict[:C],
 			   dict[:csv_odh],dict[:I0],dict[:E0],dict[:R0],dict[:D0],dict[:Sv0],
-			   dict[:tspan],dict[:δt])
+			   dict[:tspan],dict[:δt],
+			   dict[:ɾ])
 	end
 
 	function data()
@@ -397,19 +409,13 @@ end
 
 #%% odhld
 """
-Extract initial conditions from odh downloaded csv file.
+Extract initial conditions from odh and cdc downloaded csv files.
 You will then need to manually input this data into datamat() for example
 """
 function odhld(sheet::data)
 	println("Assumes files were output by parseODH.py with its naming"*
-		" conventions ...")
-	println("You should update the vaccination by age distribution in"*
-		" distr_vac field")
-	println("Manually input this data into the datamat file")
-	
-	# ODH Dashboard Vaccination
-	odhvax = sheet.distr_vac; 
-	odhvax = odhvax/sum(odhvax);
+		" conventions and parsevax in common.jl ...");
+	println("Manually input this data into the datamat file");
 
 
 	fname = sheet.csv_odh;
@@ -463,15 +469,15 @@ function odhld(sheet::data)
 	# Aggregate the initial deceased
 	D0 = Vector{Float64}(undef,9);
 	for k=1:9
-		D0[k] = sum(dfdec[1:pos-5,cols[k]]);
+		D0[k] = sum(dfdec[1:pos-7,cols[k]]);
 	end
 
 	# Compute the initial recovered
 	R0 = Cum0 - D0;
 
 	# Compute all initial vaccinated
-	dfvax = CSV.read(fname[1:end-4]*"_vax.csv",DataFrame);
-	dates = dfvax[!,:time];
+	dfvax = CSV.read(sheet.csv_vac,DataFrame);
+	dates = dfvax[!,:Date];
 	pos = 0; flagfd = false;
 	while !flagfd
 		pos += 1;
@@ -479,8 +485,8 @@ function odhld(sheet::data)
 			break
 		end
 	end
-
-	Sv0 = dfvax[pos,:cum_start]*odhvax;
+	
+	Sv0 = sum(convert(Matrix,dfvax[1:pos,2:end]),dims=1)[:];
 
 	# Create a dataframe with the starting values
 	df = DataFrame(:AGE=>cols,
@@ -639,114 +645,114 @@ https://data.cdc.gov/Vaccinations/COVID-19-Vaccinations-in-the-United-States-Cou
 """
 function parsevax(fname::String;
 	          nfutday::Int64=60)
+	# Read in CDC data and reduce to Ohio, sort by date
 	df = CSV.read(fname,DataFrame);
-
-	# Convert dates from String to Date type
-	dat = DataFrame(Dict{Symbol,Vector{Date}}(
-			:Date=>[Date(d,"m/d/y") for d in df[!,:Date]]
-			                         )
-		       );
-
-	df = [dat df[:,2:end]];
-
-	# Filter to OH
-	flag = [df[i,:Recip_State] == "OH" for i in 1:length(df[!,:Date])];
-	df = df[flag,:];
-
-	# Filter out counties and reduce to relevant columns
-	dayi = minimum(df[!,:Date]);
-	dayf = maximum(df[!,:Date]);
-	ndays = getfield(dayf-dayi,:value)+1;
-	mydates = [dayi-Day(1)+Day(k) for k in 1:ndays];
-	dfdate = DataFrame(Dict{String,Vector{Date}}("Date"=>mydates));
-
-	keys = [:Series_Complete_12Plus,:Series_Complete_18Plus,:Series_Complete_65Plus,
-		:Administered_Dose1_Recip_12Plus,:Administered_Dose1_Recip_18Plus,:Administered_Dose1_Recip_65Plus];
-
-	# Pass from 1-CDF to PDF
-	df[:,keys[1]] = df[:,keys[1]]-df[:,keys[2]]; df[:,keys[2]] = df[:,keys[2]]-df[:,keys[3]];
-	df[:,keys[4]] = df[:,keys[4]]-df[:,keys[5]]; df[:,keys[5]] = df[:,keys[5]]-df[:,keys[6]];
-
-	now = dayi;
-	dfram = DataFrame(Dict{String,Vector{Int64}}(
-			      "2D12-18"=>Int64[],"2D18-65"=>Int64[],"2D65+"=>Int64[],
-			      "1D12-18"=>Int64[],"1D18-65"=>Int64[],"1D65+"=>Int64[]
-					    )
-			  );
-	while now <= dayf
-		# Loop over data frame rows and add in counts for given day
-		ram = zeros(1,6);
-		nrows = size(df)[1];
-		for i=nrows:-1:1
-			if df[i,:Date] == now
-				ram += reshape([val = (!ismissing(df[i,key]) ? df[i,key] : 0)
-						       for key in keys],(1,6));
-				delete!(df,i);
+	gdf = groupby(df,:Recip_State); df = DataFrame(gdf[("OH",)]);
+	df[!,:Date] = Date.(df[!,:Date],"m/d/y"); sort!(df,:Date); 
+	
+	# CDC total doses by date should increase w/in each county so fill in missings
+	# respecting mon inc w/in each county
+	gdf = groupby(df,:Recip_County);
+	for g in gdf
+		for key in names(g)
+			if nonmissingtype(eltype(g[!,key]))<:Real
+				for i=1:size(g)[1]
+					val = g[!,key][i];
+					g[!,key][i] = ismissing(val) ? (i>1 ? g[!,key][i-1] : 0) : val;
+				end
 			end
 		end
-
-		# Append to df out
-		push!(dfram,ram);
-
-		# cycle to next date
-		now += Day(1);
 	end
+	
+	# Stack the subdataframes into one dataframe for future split by date
+	dftemp = similar(df,0);
+	for g in gdf
+		dftemp = [dftemp;DataFrame(g)];
+	end
+
+	# Compute data columns marginalized over each date.
+	#  Note: you can also use [:col1,:col2,:col3]=>((x,y,z)->x.*y-z)=>:new_col for ex
+	#  in combine for other ways to compute columns
+	gdf = groupby(df,:Date);
+	df = combine(gdf,:Series_Complete_12Plus=>sum=>"2D12+",:Series_Complete_18Plus=>sum=>"2D18+",
+		         :Series_Complete_65Plus=>sum=>"2D65+",
+			 :Administered_Dose1_Recip_12Plus=>sum=>"1D12+",
+			 :Administered_Dose1_Recip_18Plus=>sum=>"1D18+",
+			 :Administered_Dose1_Recip_65Plus=>sum=>"1D65+");
+	transform!(df,["1D12+","1D18+"]=>(-)=>"1D12-18",["1D18+","1D65+"]=>(-)=>"1D18-65",
+		      ["2D12+","2D18+"]=>(-)=>"2D12-18",["2D18+","2D65+"]=>(-)=>"2D18-65");
+	
+	# Go from cumulative doses to daily doses administered
+	for i=2:ncol(df)
+		df[2:end,i] = df[2:end,i]-df[1:end-1,i];
+	end
+	
+	# Make plots for inspecting extracted CDC vaccine schedule
+	plot(df[!,:Date],[df[!,"1D12+"],df[!,"1D12-18"],df[!,"1D18-65"],df[!,"1D65+"]],
+	     labels=["12+" "12-18" "18-65" "65+"],xlabel="date",ylabel="daily doses",
+	     title="CDC: Administered First Vaccines");
+	savefig("CDCvax_1dose.pdf");
+
+	plot(df[!,:Date],[df[!,"2D12+"],df[!,"2D12-18"],df[!,"2D18-65"],df[!,"2D65+"]],
+	     labels=["12+" "12-18" "18-65" "65+"],xlabel="date",ylabel="daily doses",
+	     title="CDC: Administered Second Vaccines");
+	savefig("CDCvax_2dose.pdf");
+
+	# Shift dates by 14 days for allowing vaccine efficacy to take effect
+	df[!,:Date] += Day(14);
+	dayf = df[end,:Date];
+
 
 	# Split up CDC like Ohio Population counts
 	mydata = datamat();
-	df2D = DataFrame(Dict{String,Vector{Int64}}(
-	                                   "0-9"=>Int64[],"10-19"=>Int64[],"20-29"=>Int64[],
-					   "30-39"=>Int64[],"40-49"=>Int64[],"50-59"=>Int64[],
-					   "60-69"=>Int64[],"70-79"=>Int64[],"80+"=>Int64[]
-					    )
-			 );
-	df1D = deepcopy(df2D);
-
 	wt2065 = deepcopy(mydata[:N][3:7]); wt2065[end] *= .5;
 	wt2065 *= 1/sum(wt2065);
 	wt65p = deepcopy(mydata[:N][7:9]); wt65p[1] *= .5;
 	wt65p *= 1/sum(wt65p);
-	for i=1:size(dfram)[1]
-		ram2D = zeros(Int64,1,9);
-		ram1D = zeros(Int64,1,9);
 
-		# 10-19
-		ram2D[2] = dfram[i,"2D12-18"];
-		ram1D[2] = dfram[i,"1D12-18"];
+	df1D = combine(df,"Date"=>(x->x)=>"Date",
+			    "1D12-18"=>(x->x)=>"10-19","1D18-65"=>(x->wt2065[1]*x)=>"20-29",
+			    "1D18-65"=>(x->wt2065[2]*x)=>"30-39","1D18-65"=>(x->wt2065[3]*x)=>"40-49",
+			    "1D18-65"=>(x->wt2065[4]*x)=>"50-59",
+			    ["1D18-65","1D65+"]=>((x,y)->wt2065[end]*x+wt65p[1]*y)=>"60-69",
+			    "1D65+"=>(x->wt65p[2]*x)=>"70-79","1D65+"=>(x->wt65p[3]*x)=>"80+");
+	df1D[!,"0-9"] = zeros(nrow(df1D));
 
-		# 20-65
-		ram2D[3:7] = Int64.(floor.(dfram[i,"2D18-65"]*wt2065));
-		ram1D[3:7] = Int64.(floor.(dfram[i,"1D18-65"]*wt2065));
+	df2D = combine(df,"Date"=>(x->x)=>"Date",
+			    "2D12-18"=>(x->x)=>"10-19","2D18-65"=>(x->wt2065[1]*x)=>"20-29",
+			    "2D18-65"=>(x->wt2065[2]*x)=>"30-39","2D18-65"=>(x->wt2065[3]*x)=>"40-49",
+			    "2D18-65"=>(x->wt2065[4]*x)=>"50-59",
+			    ["2D18-65","2D65+"]=>((x,y)->wt2065[end]*x+wt65p[1]*y)=>"60-69",
+			    "2D65+"=>(x->wt65p[2]*x)=>"70-79","2D65+"=>(x->wt65p[3]*x)=>"80+");
+	df2D[!,"0-9"] = zeros(nrow(df2D));
 
-		# 65+
-		ram2D[7:9] += Int64.(floor.(dfram[i,"2D65+"]*wt65p));
-		ram1D[7:9] += Int64.(floor.(dfram[i,"1D65+"]*wt65p));
+	select!(df1D,[1,10,2,3,4,5,6,7,8,9]);
+	select!(df2D,[1,10,2,3,4,5,6,7,8,9]);
 
-		# append
-		push!(df2D,ram2D);
-		push!(df1D,ram1D);
+	# Convert to integer values
+	for i=2:ncol(df1D)
+		df1D[!,i] = Int64.(floor.(df1D[!,i]));
+		df2D[!,i] = Int64.(floor.(df2D[!,i]));
 	end
-	
-	# Cumulative case counts
-	df2D = [dfdate df2D];
-	df1D = [dfdate df1D];
 
-	# Daily case counts
-	for i=size(dfdate)[1]:-1:2
-		df2D[i:i,2:end] .= df2D[i:i,2:end] .- df2D[i-1:i-1,2:end];
-		df1D[i:i,2:end] .= df1D[i:i,2:end] .- df1D[i-1:i-1,2:end];
-
-		# If missing values in CDC caused spurious negative, reset 
-		# to 0
-		for j=2:10
-			df2D[i,j] = (df2D[i,j]>=0) ? df2D[i,j] : 0;
-			df1D[i,j] = (df1D[i,j]>=0) ? df1D[i,j] : 0;
+	# Plot age-stratified vaccinations
+	plot();
+	for key in names(df1D)
+		if key!="Date"
+			plot!(df1D[!,:Date],df1D[!,key],labels=key,xlabel="date",ylabel="doses administered",
+			      title="Single Dose");
 		end
 	end
+	savefig("Vax1D_age.pdf");
 
-	# Transfer to vaccinated compartment 14 days after administration
-	df1D[!,"Date"] = df1D[!,"Date"] .+ Day(14);
-	df2D[!,"Date"] = df2D[!,"Date"] .+ Day(14);
+	plot();
+	for key in names(df2D)
+		if key!="Date"
+			plot!(df2D[!,:Date],df2D[!,key],labels=key,xlabel="date",ylabel="doses administered",
+			      title="Second Dose");
+		end
+	end
+	savefig("Vax2D_age.pdf");
 
 	# Extrapolate into the future using constant rate over the
 	# last two weeks
@@ -761,4 +767,5 @@ function parsevax(fname::String;
 	# Write CSV's
 	CSV.write(fname[1:end-4]*"_2D.csv",df2D);
 	CSV.write(fname[1:end-4]*"_1D.csv",df1D);
+	
 end
