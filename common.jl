@@ -77,7 +77,7 @@ function datamat()
 	
 	# Initial conditions
 	#  CSV to read initial conditions from, leave empty if not a csv
-	mydata[:csv_odh] = "ODH_Data/ODH_0908.csv";
+	mydata[:csv_odh] = "ODH_Data/ODH_0909.csv";
 
 	#  Aggregate unvaccinated population
 	mydata[:I0] = [ 1026.6993381498505
@@ -139,7 +139,7 @@ function datamat()
 
 	# ODE solver params
 	#  Time span for simulation. Day is relative Jan 1, 2020
-	mydata[:tspan] = [425., 616.]; 
+	mydata[:tspan] = [425., 610.]; 
 
 	#  Runga kutta time step
 	mydata[:δt] = .25;

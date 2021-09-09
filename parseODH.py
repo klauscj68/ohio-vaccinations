@@ -14,7 +14,7 @@ import os
 
 #%% Initialize
 mydir = 'ODH_Data'
-DAY = '0616'
+DAY = '0909'
 
 #%% Download and save ODH data
 DF_ODH = pd.read_csv('https://coronavirus.ohio.gov/static/dashboards/COVIDDeathData_CountyOfResidence.csv')

@@ -132,10 +132,10 @@ function flowfield(sheet::data,mydep::Dict{Symbol,Vector{Float64}},
 	Nv = sum(Y);
 
 	# Compute mixing rates between vaccinated and unvaccinated groups
-	#  Formula is an²+anᵥ²+bnnᵥ = (n+nᵥ)²
+	#  Formula is an²+anᵥ²+2bnnᵥ = (n+nᵥ)²
 	#  	      b/a=ɾ
 	Nu = sum(X);
-	amix = (Nu+Nv)^2/(Nu^2+Nv^2+sheet.ɾ*Nu*Nv);
+	amix = (Nu+Nv)^2/(Nu^2+Nv^2+2*sheet.ɾ*Nu*Nv);
 	bmix = sheet.ɾ*amix;
 	
 	# Take change point parameters if appropriate

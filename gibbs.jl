@@ -254,7 +254,12 @@ function gibbsprior(sheet::data,myaux::Dict{Symbol,Float64},mydep::Dict{Symbol,V
 	if gibbssheet.prmvary[:Δr0]&&(myaux[:Δr0] < sheet.r0)
 		return -Inf
 	end
-
+	
+	# Δα should be greater than α
+	if gibbssheet.prmvary[:Δα]&&(myaux[:Δα] < sheet.α)
+		return -Inf
+	end
+	
 	# Δω should be greater than ω
 	if gibbssheet.prmvary[:Δω]&&(myaux[:Δω] < sheet.ω)
 		return -Inf
