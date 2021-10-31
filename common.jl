@@ -77,7 +77,7 @@ function datamat()
 	
 	# Initial conditions
 	#  CSV to read initial conditions from, leave empty if not a csv
-	mydata[:csv_odh] = "ODH_Data/ODH_0909.csv";
+	mydata[:csv_odh] = "ODH_0909.csv";
 
 	#  Aggregate unvaccinated population
 	mydata[:I0] = [ 1026.6993381498505
