@@ -1,7 +1,5 @@
 # A suite for MCMC by Gibb's sampling
-#  While tailored to fitting experimental cone flash responses, the 
-#  routines are flexible and should be possible to adapt to other
-#  applications.
+
 using Random, LinearAlgebra, DataFrames, CSV
 
 #%% gibbsdata
@@ -30,7 +28,7 @@ end
 
 #%% gibbsdatamat
 """
-Encode the data specific to the model for cone flash response
+Encode the data ranges specific to the model
 nsmp: Number of mcmc samples desired
 """
 function gibbsdatamat()
